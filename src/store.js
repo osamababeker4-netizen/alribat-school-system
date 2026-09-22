@@ -1,9 +1,11 @@
+import{queueCentralSave,centralEnabled}from"./central.js";
 const K="alribat-school-system-v1";
 export const blank={version:1,school:{name:"مدرسة الرباط",currency:"جنيه سوداني",academicYear:"2026/2027"},students:[],fees:[],payments:[],expenses:[],staff:[],attendance:[],inventory:[],moves:[],requests:[],users:[{id:"u-admin",name:"مدير النظام",email:"admin@alribat.local",role:"مدير النظام",active:true}],audit:[],notifications:[]};
 const copy=x=>JSON.parse(JSON.stringify(x));
 export const id=(p="id")=>p+"-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,7);
 export function load(){try{const x=JSON.parse(localStorage.getItem(K));return x?{...copy(blank),...x,school:{...blank.school,...(x.school||{})}}:copy(blank)}catch{return copy(blank)}}
-export const save=x=>localStorage.setItem(K,JSON.stringify(x));
+export const save=x=>{localStorage.setItem(K,JSON.stringify(x));if(centralEnabled)queueCentralSave(x)};
+export const hydrateLocal=x=>localStorage.setItem(K,JSON.stringify(x));
 export const clear=()=>{localStorage.removeItem(K);return copy(blank)};
 export const total=(a,k="amount")=>a.reduce((n,x)=>n+Number(x[k]||0),0);
 export const paid=(db,fid)=>total(db.payments.filter(x=>x.feeId===fid));
