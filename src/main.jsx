@@ -1,3 +1,4 @@
+import{centralEnabled,inviteSchoolUser}from"./central.js";
 import React,{useEffect,useMemo,useRef,useState}from"react";
 import{audit,backup,balance,clear,csv,fstatus,id,load,money,paid,restore,save,total}from"./store.js";
 import"./styles.css";
@@ -61,7 +62,7 @@ function Users({db,mutate,setModal,user,uidx,setUidx,fileRef,setDb}){const admin
 function Dialogs({modal,setModal,db,mutate,notify,user}){if(!modal)return null;const close=()=>setModal(null);if(modal.type==="notes")return <Modal title="التنبيهات" close={close}>{db.notifications.length?<div className="auditList">{db.notifications.map(x=><div key={x.id}><b>{x.title}</b><span>{x.message}</span><small>{new Date(x.at).toLocaleString("ar")}</small></div>)}</div>:<Empty text="لا توجد تنبيهات"/>}<div className="modalActions"><button onClick={()=>{setModal(null)}}>إغلاق</button></div></Modal>;return <FormDialog type={modal.type} close={close} db={db} mutate={mutate} notify={notify} user={user}/>}
 
 function FormDialog({type,close,db,mutate,notify,user}){const init={student:{name:"",grade:"",className:"",parentName:"",parentPhone:""},fee:{studentId:"",type:"رسوم دراسية",amount:"",dueDate:today()},payment:{feeId:"",amount:"",date:today(),method:"نقدي"},expense:{title:"",category:"أخرى",amount:"",date:today(),payee:""},staff:{name:"",role:"معلم",phone:"",salary:"",hireDate:today()},item:{name:"",sku:"",category:"",unit:"قطعة",quantity:"0",reorderLevel:"0",unitCost:"0"},move:{itemId:"",kind:"صرف",quantity:"",date:today(),recipient:""},request:{title:"",department:"",priority:"عادية",details:""},user:{name:"",email:"",role:"مشرف/معلم"}}[type]||{};const[f,setF]=useState(init);const set=(k,v)=>setF({...f,[k]:v});const title={student:"إضافة طالب",fee:"إضافة رسوم",payment:"إيصال قبض",expense:"إضافة مصروف",staff:"إضافة موظف",item:"إضافة صنف",move:"حركة مخزون",request:"طلب جديد",user:"إضافة مستخدم"}[type];
- const submit=e=>{e.preventDefault();
+ const submit=async e=>{e.preventDefault();
  if(type==="student")mutate(p=>({...p,students:[...p.students,{...f,id:id("stu"),status:"نشط"}]}),"إنشاء","الطلاب","إضافة "+f.name);
  if(type==="fee"){const s=db.students.find(x=>x.id===f.studentId);mutate(p=>({...p,fees:[...p.fees,{...f,id:id("fee"),studentName:s.name,amount:num(f.amount)}]}),"إنشاء","المحاسبة","إضافة رسوم "+s.name)}
  if(type==="payment"){const fee=db.fees.find(x=>x.id===f.feeId),b=fee?balance(db,fee):0;if(!fee||num(f.amount)<=0||num(f.amount)>b){alert("المبلغ غير صالح أو أكبر من الرصيد "+money(b));return}const rec="REC-"+new Date().getFullYear()+"-"+String(db.payments.length+1).padStart(5,"0");mutate(p=>({...p,payments:[...p.payments,{...f,id:id("pay"),studentId:fee.studentId,studentName:fee.studentName,receipt:rec,amount:num(f.amount)}]}),"إنشاء","المحاسبة","إيصال "+rec);notify("تم تسجيل دفعة",rec+" — "+money(f.amount))}
@@ -70,7 +71,14 @@ function FormDialog({type,close,db,mutate,notify,user}){const init={student:{nam
  if(type==="item")mutate(p=>({...p,inventory:[...p.inventory,{...f,id:id("item"),quantity:num(f.quantity),reorderLevel:num(f.reorderLevel),unitCost:num(f.unitCost)}]}),"إنشاء","المخزون","إضافة "+f.name);
  if(type==="move"){const it=db.inventory.find(x=>x.id===f.itemId),q=num(f.quantity),delta=f.kind==="استلام"?q:-q;if(!it||q<=0)return;if(it.quantity+delta<0){alert("لا يمكن الصرف: الكمية أكبر من الرصيد");return}mutate(p=>({...p,inventory:p.inventory.map(x=>x.id===it.id?{...x,quantity:x.quantity+delta}:x),moves:[...p.moves,{...f,id:id("mov"),itemName:it.name,quantity:q,balanceAfter:it.quantity+delta}]}),"إنشاء","المخزون",f.kind+" "+q+" من "+it.name);if(it.quantity+delta<=it.reorderLevel)notify("تنبيه مخزون",it.name+" وصل إلى "+(it.quantity+delta))}
  if(type==="request")mutate(p=>({...p,requests:[...p.requests,{...f,id:id("req"),number:"REQ-"+String(p.requests.length+1).padStart(4,"0"),status:"قيد المراجعة",requester:user.name,createdAt:new Date().toISOString()}]}),"إنشاء","الطلبات","طلب "+f.title);
- if(type==="user")mutate(p=>({...p,users:[...p.users,{...f,id:id("u"),active:true}]}),"إنشاء","المستخدمون","إضافة "+f.name);
+ if(type==="user"){
+   if(centralEnabled){
+     await inviteSchoolUser(f.email,f.name,f.role);
+     alert("تم إصدار الدعوة. يمكن للمستخدم الآن التسجيل بنفس البريد من شاشة الدخول.");
+   }else{
+     mutate(p=>({...p,users:[...p.users,{...f,id:id("u"),active:true}]}),"إنشاء","المستخدمون","إضافة "+f.name);
+   }
+ }
  close()};
  return <Modal title={title} close={close}><form className="formGrid" onSubmit={submit}>{type==="student"&&<><F label="اسم الطالب" full><input required value={f.name} onChange={e=>set("name",e.target.value)}/></F><F label="الصف"><input required value={f.grade} onChange={e=>set("grade",e.target.value)}/></F><F label="الفصل"><input value={f.className} onChange={e=>set("className",e.target.value)}/></F><F label="ولي الأمر"><input value={f.parentName} onChange={e=>set("parentName",e.target.value)}/></F><F label="هاتف ولي الأمر"><input value={f.parentPhone} onChange={e=>set("parentPhone",e.target.value)}/></F></>}
  {type==="fee"&&<><F label="الطالب" full><select required value={f.studentId} onChange={e=>set("studentId",e.target.value)}><option value="">اختر الطالب</option>{db.students.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></F><F label="نوع الرسوم"><select value={f.type} onChange={e=>set("type",e.target.value)}>{["رسوم تسجيل","رسوم دراسية","رسوم نقل","رسوم نشاط","رسوم امتحانات","أخرى"].map(x=><option key={x}>{x}</option>)}</select></F><F label="المبلغ"><input required min="1" type="number" value={f.amount} onChange={e=>set("amount",e.target.value)}/></F><F label="الاستحقاق" full><input type="date" value={f.dueDate} onChange={e=>set("dueDate",e.target.value)}/></F></>}
