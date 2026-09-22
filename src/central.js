@@ -28,6 +28,24 @@ export async function signIn(email,password){
   if(error)throw error;
   return data.session;
 }
+export async function signUpAccount(email,password,full_name){
+  const {data,error}=await supabase.auth.signUp({
+    email:String(email).trim().toLowerCase(),
+    password,
+    options:{data:{full_name:full_name||"مستخدم مدرسة الرباط"}}
+  });
+  if(error)throw error;
+  return data;
+}
+export async function inviteSchoolUser(email,full_name,role){
+  const {data,error}=await supabase.rpc("invite_school_user",{
+    p_email:String(email).trim().toLowerCase(),
+    p_full_name:full_name,
+    p_role:role
+  });
+  if(error)throw error;
+  return data;
+}
 export async function signOut(){
   if(!centralEnabled)return;
   const {error}=await supabase.auth.signOut();
