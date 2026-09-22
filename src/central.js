@@ -101,3 +101,16 @@ export function queueCentralSave(state){
   saveTimer=setTimeout(flushSave,700);
 }
 export function currentProfile(){return profileCache;}
+
+export function subscribeCentralChanges(onChange){
+  if(!centralEnabled||!supabase)return()=>{};
+  const channel=supabase
+    .channel("alribat-central-sync")
+    .on("postgres_changes",{event:"*",schema:"public",table:"school_modules"},payload=>{
+      const by=payload?.new?.updated_by;
+      if(profileCache?.user_id&&by===profileCache.user_id)return;
+      onChange?.(payload);
+    })
+    .subscribe();
+  return()=>{supabase.removeChannel(channel)};
+}
