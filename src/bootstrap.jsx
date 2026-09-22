@@ -2,7 +2,7 @@ import React,{useEffect,useState}from"react";
 import{createRoot}from"react-dom/client";
 import App from"./main.jsx";
 import{blank,hydrateLocal}from"./store.js";
-import{centralEnabled,centralLoad,getSession,signIn,signOut,signUpAccount}from"./central.js";
+import{centralEnabled,centralLoad,getSession,signIn,signOut,signUpAccount,subscribeCentralChanges}from"./central.js";
 
 function Login({onReady}){
  const[email,setEmail]=useState(""),[password,setPassword]=useState(""),[name,setName]=useState(""),[mode,setMode]=useState("login"),[busy,setBusy]=useState(false),[error,setError]=useState(""),[info,setInfo]=useState("");
@@ -18,6 +18,7 @@ function Login({onReady}){
 function Boot(){
  const[ready,setReady]=useState(!centralEnabled),[checking,setChecking]=useState(centralEnabled);
  useEffect(()=>{if(!centralEnabled)return;let live=true;(async()=>{try{const s=await getSession();if(s){const data=await centralLoad(blank);hydrateLocal(data);if(live)setReady(true)}}catch(e){console.error(e)}finally{if(live)setChecking(false)}})();return()=>{live=false}},[]);
+ useEffect(()=>{if(!centralEnabled||!ready)return;const stop=subscribeCentralChanges(async()=>{try{const data=await centralLoad(blank);hydrateLocal(data);window.location.reload()}catch(e){console.error(e)}});return stop},[ready]);
  if(!centralEnabled)return <App/>;
  if(checking)return <div className="bootScreen"><div className="spinner"></div><b>جارٍ الاتصال بقاعدة المدرسة...</b></div>;
  if(!ready)return <Login onReady={()=>setReady(true)}/>;
