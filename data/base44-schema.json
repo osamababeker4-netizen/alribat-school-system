@@ -1,0 +1,13 @@
+{
+  "source": "Base44 project مدرسة الرباط",
+  "captured": "2026-09-22",
+  "entities": [
+    "Student","Fee","Payment","Expense","Staff","Attendance","InventoryItem","StockMovement","SupplyRequest","DiscountRequest","Notification","AuditLog","User"
+  ],
+  "roles": ["مدير النظام","مدير المدرسة","محاسب","أمين المستودع","مشرف/معلم"],
+  "notes": [
+    "The Base44 source files could not be exported because direct sandbox access requires a Builder plan.",
+    "No live student, staff, financial, or personal records are included in this repository.",
+    "Production migration must validate financial balances before cutover."
+  ]
+}
