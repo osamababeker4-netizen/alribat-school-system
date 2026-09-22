@@ -8,6 +8,8 @@ export const supabase=centralEnabled?createClient(url,anon,{auth:{persistSession
 let profileCache=null;
 let pendingState=null;
 let saveTimer=null;
+let versionCache={};
+let lastSnapshot={};
 
 const WRITE={
   "مدير النظام":["school","students","fees","payments","expenses","staff","attendance","inventory","moves","requests","audit","notifications"],
@@ -16,6 +18,7 @@ const WRITE={
   "أمين المستودع":["inventory","moves","requests","audit","notifications"],
   "مشرف/معلم":["students","attendance","requests","audit","notifications"]
 };
+const snap=v=>JSON.stringify(v??null);
 
 export async function getSession(){
   if(!centralEnabled)return null;
@@ -50,6 +53,7 @@ export async function signOut(){
   if(!centralEnabled)return;
   const {error}=await supabase.auth.signOut();
   if(error)throw error;
+  profileCache=null; versionCache={}; lastSnapshot={};
 }
 export async function getProfile(){
   const session=await getSession();
@@ -64,10 +68,15 @@ export async function centralLoad(blank){
   if(!centralEnabled)return null;
   const profile=await getProfile();
   if(!profile)return null;
-  const {data:mods,error}=await supabase.from("school_modules").select("module,data");
+  const {data:mods,error}=await supabase.from("school_modules").select("module,data,version");
   if(error)throw error;
   const next=JSON.parse(JSON.stringify(blank));
-  for(const row of mods||[]) next[row.module]=row.data;
+  versionCache={}; lastSnapshot={};
+  for(const row of mods||[]){
+    next[row.module]=row.data;
+    versionCache[row.module]=Number(row.version||0);
+    lastSnapshot[row.module]=snap(row.data);
+  }
   let users=[{id:"u-admin",authId:profile.user_id,name:profile.full_name,email:profile.email,role:profile.role,active:profile.active}];
   if(["مدير النظام","مدير المدرسة"].includes(profile.role)){
     const {data:profiles,error:pe}=await supabase.from("profiles").select("user_id,full_name,role,active");
@@ -82,14 +91,26 @@ async function flushSave(){
   const state=pendingState;
   pendingState=null;
   if(!centralEnabled||!state||!profileCache)return;
-  const keys=WRITE[profileCache.role]||[];
+  const keys=(WRITE[profileCache.role]||[]).filter(k=>Object.prototype.hasOwnProperty.call(state,k)&&snap(state[k])!==lastSnapshot[k]);
   if(!keys.length)return;
-  const rows=keys.filter(k=>Object.prototype.hasOwnProperty.call(state,k)).map(module=>({module,data:state[module],updated_by:profileCache.user_id,updated_at:new Date().toISOString()}));
-  if(!rows.length)return;
-  const {error}=await supabase.from("school_modules").upsert(rows,{onConflict:"module"});
-  if(error){
-    console.error("Central sync failed",error);
-    window.dispatchEvent(new CustomEvent("alribat-sync-error",{detail:error.message}));
+  let failure=null;
+  for(const module of keys){
+    const expected=Number(versionCache[module]??0);
+    const {data,error}=await supabase.rpc("save_school_module",{
+      p_module:module,
+      p_data:state[module],
+      p_expected_version:expected
+    });
+    if(error){
+      failure=error;
+      console.error("Central sync failed",module,error);
+      break;
+    }
+    versionCache[module]=Number(data);
+    lastSnapshot[module]=snap(state[module]);
+  }
+  if(failure){
+    window.dispatchEvent(new CustomEvent("alribat-sync-error",{detail:failure.message}));
   }else{
     window.dispatchEvent(new CustomEvent("alribat-sync-ok"));
   }
@@ -98,7 +119,7 @@ export function queueCentralSave(state){
   if(!centralEnabled||!profileCache)return;
   pendingState=JSON.parse(JSON.stringify(state));
   clearTimeout(saveTimer);
-  saveTimer=setTimeout(flushSave,700);
+  saveTimer=setTimeout(flushSave,500);
 }
 export function currentProfile(){return profileCache;}
 
