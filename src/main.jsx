@@ -1,5 +1,4 @@
 import React,{useEffect,useMemo,useRef,useState}from"react";
-import{createRoot}from"react-dom/client";
 import{audit,backup,balance,clear,csv,fstatus,id,load,money,paid,restore,save,total}from"./store.js";
 import"./styles.css";
 
@@ -84,4 +83,4 @@ function FormDialog({type,close,db,mutate,notify,user}){const init={student:{nam
  {type==="user"&&<><F label="الاسم"><input required value={f.name} onChange={e=>set("name",e.target.value)}/></F><F label="البريد"><input type="email" value={f.email} onChange={e=>set("email",e.target.value)}/></F><F label="الدور" full><select value={f.role} onChange={e=>set("role",e.target.value)}>{ROLES.map(x=><option key={x}>{x}</option>)}</select></F></>}
  <Actions close={close}/></form></Modal>}
 
-createRoot(document.getElementById("root")).render(<App/>);
+export default App;
