@@ -2,7 +2,7 @@ import React,{useEffect,useState}from"react";
 import{createRoot}from"react-dom/client";
 import App from"./main.jsx";
 import{blank,hydrateLocal}from"./store.js";
-import{centralEnabled,centralLoad,getSession,signIn}from"./central.js";
+import{centralEnabled,centralLoad,getSession,signIn,signOut}from"./central.js";
 
 function Login({onReady}){
  const[email,setEmail]=useState(""),[password,setPassword]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");
@@ -15,6 +15,7 @@ function Boot(){
  if(!centralEnabled)return <App/>;
  if(checking)return <div className="bootScreen"><div className="spinner"></div><b>جارٍ الاتصال بقاعدة المدرسة...</b></div>;
  if(!ready)return <Login onReady={()=>setReady(true)}/>;
- return <App/>;
+ const logout=async()=>{await signOut();hydrateLocal(blank);setReady(false)};
+ return <><App/><div className="centralBadge">● متصل بالقاعدة المركزية</div><button className="logoutFab" onClick={logout}>تسجيل الخروج</button></>;
 }
 createRoot(document.getElementById("root")).render(<Boot/>);
