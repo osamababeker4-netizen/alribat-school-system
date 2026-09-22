@@ -35,3 +35,10 @@
  .printFooter{position:fixed;bottom:-18mm;left:36mm;right:0;border-top:1px solid #0b3a69;padding-top:2mm;display:flex;justify-content:space-between;font-size:8px;color:#0b3a69}
  .printFooter span{color:#6c655e}
 }
+
+.content{position:relative;isolation:isolate}
+.content:before{content:"";position:fixed;left:50%;top:54%;transform:translate(-50%,-50%);width:min(46vw,520px);height:min(46vw,520px);background:url("./alribat-seal.svg") center/contain no-repeat;opacity:.026;z-index:-1;pointer-events:none}
+.loginPage:after{content:"";position:absolute;right:-90px;bottom:-90px;width:430px;height:430px;background:url("./alribat-seal.svg") center/contain no-repeat;opacity:.035;pointer-events:none}
+.centralBadge.sync{background:#fff7e3;color:#7a5b16;border-color:#ead38d}
+.centralBadge.error{background:#fff0ee;color:#9a3d31;border-color:#e5b7af}
+@media(max-width:680px){.content:before{width:78vw;height:78vw;opacity:.02}}
