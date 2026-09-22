@@ -1,19 +1,39 @@
 # مدرسة الرباط — Alribat School System
 
-GitHub-ready baseline for the school's Arabic financial and administrative system.
+نظام مالي وإداري عربي متجاوب لمدرسة الرباط.
 
-## Run locally
+## رابط التشغيل
+https://alribat-school-system.onrender.com
+
+## الحالة
+- الإصدار: v1.0
+- GitHub CI: build ناجح
+- Render: Live
+- التخزين الحالي: محلي داخل متصفح الجهاز (LocalStorage)
+- مخطط قاعدة بيانات إنتاجية جاهز في `supabase/schema.sql`
+
+## الوظائف المفعلة
+الطلاب، الرسوم والتحصيل، إيصالات القبض، المصروفات، الموظفون، الحضور، المخزون وحركاته، الطلبات والموافقات، التقارير، الأدوار والصلاحيات، سجل التدقيق، التنبيهات، التصدير CSV، والطباعة والنسخ الاحتياطي JSON.
+
+## ضوابط تشغيلية
+- منع دفع مبلغ أكبر من رصيد الرسوم.
+- احتساب المدفوع والرصيد من الإيصالات الفعلية.
+- منع صرف المخزون بالسالب.
+- منع حذف طالب مرتبط بحركات مالية.
+- أدوار: مدير النظام، مدير المدرسة، محاسب، أمين المستودع، مشرف/معلم.
+
+## التشغيل المحلي
 ```bash
 npm install
 npm run dev
 ```
 
-## Build
+## البناء
 ```bash
 npm run build
 ```
 
-## Scope
-Students, fees, collections, expenses, staff, attendance, inventory, approvals, reports, users and permissions.
+## قاعدة البيانات المركزية
+النسخة المنشورة تعمل حاليًا كوضع مستقل لكل جهاز. لا تستخدمها كقاعدة بيانات مشتركة متعددة المستخدمين قبل ربط طبقة المصادقة وقاعدة البيانات المركزية. مخطط PostgreSQL/RLS الجاهز موجود في `supabase/schema.sql`.
 
-See `docs/MIGRATION.md` for the Base44 migration plan and `data/base44-schema.json` for the captured entity inventory.
+راجع `docs/MIGRATION.md` لخطة الانتقال من Base44.
