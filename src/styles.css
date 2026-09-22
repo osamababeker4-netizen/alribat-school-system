@@ -12,3 +12,26 @@
 .centralBadge{position:fixed;left:18px;bottom:18px;z-index:30;background:#eaf6ec;color:#2f6b3b;border:1px solid #bfdac5;border-radius:999px;padding:8px 12px;font-size:11px;box-shadow:0 8px 24px #00000014}.logoutFab{position:fixed;left:18px;bottom:58px;z-index:30;border:1px solid #d8cdbd;background:#fff;color:#70443b;border-radius:12px;padding:9px 13px;box-shadow:0 8px 24px #00000012}
 @media(max-width:680px){.loginPage{padding:14px}.loginCard{padding:20px;border-radius:22px}.loginBrand{align-items:flex-start}.loginLogo{width:54px;height:54px;border-radius:16px}.loginCopy h1{font-size:27px}.centralBadge{left:10px;bottom:82px}.logoutFab{left:auto;right:10px;bottom:82px}}
 .loginInfo{background:#eef8f0;border:1px solid #c7e2cd;color:#346b40;padding:10px 12px;border-radius:11px;font-size:13px}.switchAuth{width:100%;margin-top:12px;border:0;background:transparent;color:#0b4c87;text-decoration:underline;padding:8px;font-size:13px}
+.logo img,.loginLogo img{width:100%;height:100%;object-fit:contain;border-radius:inherit}
+.logo{overflow:hidden;background:#fff!important;padding:3px}
+.loginLogo{overflow:hidden;background:#fff!important;padding:3px}
+.hero{position:relative;overflow:hidden}
+.hero:after{content:"";position:absolute;inset:auto 24px -42px auto;width:190px;height:190px;background:url("./alribat-seal.svg") center/contain no-repeat;opacity:.08;pointer-events:none}
+.printBrand{display:none}
+@media print{
+ @page{size:A4;margin:30mm 14mm 24mm}
+ body{background:#fff!important}
+ .printBrand{display:block!important}
+ .printHeader{position:fixed;top:-24mm;left:0;right:0;height:22mm;display:flex;align-items:center;gap:10px;border-bottom:2px solid #0b3a69;padding:0 2mm 3mm;background:white;z-index:100}
+ .printHeader img{width:18mm;height:18mm;object-fit:contain}
+ .printHeader div{display:grid;gap:1px;color:#0b3a69}
+ .printHeader b{font-size:15px}
+ .printHeader span{font-size:10px;font-weight:700;letter-spacing:.4px}
+ .printHeader small{font-size:9px;color:#82631e}
+ .printWatermark{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:115mm;height:115mm;opacity:.055;z-index:-1}
+ .printStamp{position:fixed;bottom:-14mm;right:2mm;display:flex;align-items:center;gap:5px;color:#123f7a}
+ .printStamp img{width:25mm;height:25mm;opacity:.82}
+ .printStamp span{font-size:9px}
+ .printFooter{position:fixed;bottom:-18mm;left:36mm;right:0;border-top:1px solid #0b3a69;padding-top:2mm;display:flex;justify-content:space-between;font-size:8px;color:#0b3a69}
+ .printFooter span{color:#6c655e}
+}
