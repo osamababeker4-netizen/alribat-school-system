@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ختم مدرسة الرباط">
+<defs><path id="a" d="M67 258a189 189 0 0 1 378 0"/><path id="b" d="M445 269a189 189 0 0 1-378 0"/></defs>
+<circle cx="256" cy="256" r="238" fill="none" stroke="#123f7a" stroke-width="15"/><circle cx="256" cy="256" r="205" fill="none" stroke="#123f7a" stroke-width="7"/>
+<text font-family="Tahoma,Arial,sans-serif" font-size="24" font-weight="700" fill="#123f7a" text-anchor="middle"><textPath href="#a" startOffset="50%">مدرسة الرباط الأساسية المختلطة الخاصة</textPath></text>
+<text font-family="Arial,sans-serif" font-size="20" font-weight="700" fill="#123f7a" text-anchor="middle"><textPath href="#b" startOffset="50%">AL-RIBAT PRIVATE CO-ED BASIC SCHOOL</textPath></text>
+<g transform="translate(256 240)" fill="none" stroke="#123f7a" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+<path d="M-112 67Q-54 32 0 72Q54 32 112 67L96 96Q48 71 0 105Q-48 71-96 96Z"/><path d="M0 72V105"/>
+<path d="M-6-92C-40-76-50-43-34-16C-14-35 0-58 8-85Z"/><path d="M2-70C-8-31 2 6 8 28C24-8 39-38 62-58"/>
+<path d="M14 22C30 4 48 1 66 9C55 30 36 37 14 22ZM19 48C42 31 61 39 73 53C55 67 35 68 19 48ZM-3 51C-22 34-43 36-55 51C-39 66-19 68-3 51Z"/>
+</g><text x="256" y="395" text-anchor="middle" font-family="Tahoma,Arial,sans-serif" font-size="20" font-weight="700" fill="#123f7a">بورتسودان • تأسست 2000م</text>
+</svg>
