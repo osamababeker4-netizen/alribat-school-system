@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="شعار مدرسة الرباط">
+<defs><path id="topArc" d="M74 259a182 182 0 0 1 364 0"/><path id="botArc" d="M438 267a182 182 0 0 1-364 0"/></defs>
+<circle cx="256" cy="256" r="244" fill="#0b3a69"/><circle cx="256" cy="256" r="226" fill="#d8b45d"/><circle cx="256" cy="256" r="216" fill="#fff"/><circle cx="256" cy="256" r="188" fill="#f9fbfd" stroke="#0b3a69" stroke-width="6"/>
+<text font-family="Tahoma,Arial,sans-serif" font-size="23" font-weight="700" fill="#fff" text-anchor="middle"><textPath href="#topArc" startOffset="50%">مدرسة الرباط الأساسية المختلطة الخاصة</textPath></text>
+<text font-family="Arial,sans-serif" font-size="20" font-weight="700" fill="#fff" text-anchor="middle" letter-spacing="1"><textPath href="#botArc" startOffset="50%">AL-RIBAT PRIVATE CO-ED BASIC SCHOOL</textPath></text>
+<g transform="translate(256 245)">
+ <path d="M-118 62Q-62 30 0 72Q62 30 118 62L100 94Q48 68 0 104Q-48 68-100 94Z" fill="none" stroke="#0b3a69" stroke-width="11" stroke-linejoin="round"/>
+ <path d="M0 72V104" stroke="#0b3a69" stroke-width="9" stroke-linecap="round"/>
+ <path d="M-10-96C-48-82-55-43-36-16C-15-36 4-58 10-86Z" fill="none" stroke="#0b3a69" stroke-width="9"/>
+ <path d="M0-72C-14-38-6-6 4 18C16-13 29-42 52-61" fill="none" stroke="#0b3a69" stroke-width="8" stroke-linecap="round"/>
+ <path d="M11 25C18 0 39-8 58-2C50 19 31 31 11 25ZM20 45C39 30 60 34 72 48C56 62 36 64 20 45ZM-2 47C-22 30-42 34-55 47C-40 62-18 66-2 47Z" fill="#6f8f32"/>
+ <path d="M50-64c10-19 18-34 5-50c27 7 38 31 25 53c-7 12-19 18-30 18Z" fill="#d89b22"/>
+</g>
+<text x="256" y="390" text-anchor="middle" font-family="Tahoma,Arial,sans-serif" font-size="20" font-weight="700" fill="#0b3a69">تأسست 2000م</text>
+<text x="256" y="420" text-anchor="middle" font-family="Arial,sans-serif" font-size="20" font-weight="700" fill="#0b3a69">PORT SUDAN</text>
+<circle cx="74" cy="256" r="7" fill="#d8b45d"/><circle cx="438" cy="256" r="7" fill="#d8b45d"/>
+</svg>
