@@ -13,7 +13,7 @@ function Head({title,desc,add,onAdd,search,setSearch,extra}){return <><div class
 function Modal({title,close,children}){return <div className="modalWrap" onMouseDown={e=>e.target===e.currentTarget&&close()}><div className="modal"><div className="modalHead"><h3>{title}</h3><button className="iconBtn" onClick={close}>×</button></div>{children}</div></div>}
 function F({label,children,full}){return <label className={full?"full":""}><span>{label}</span>{children}</label>}
 function Actions({close}){return <div className="formActions full"><button type="button" onClick={close}>إلغاء</button><button className="primary" type="submit">حفظ</button></div>}
-function Metric({t,v,s}){return <div className="card"><span>{t}</span><strong>{v}</strong><small>{s}</small></div>}
+function Metric({t,v,s,icon="•",tone="blue"}){return <div className={"card metricCard "+tone}><div className="metricIcon">{icon}</div><div><span>{t}</span><strong>{v}</strong><small>{s}</small></div></div>}
 function printReceipt(x,school){
  const esc=v=>String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
  const w=window.open("","_blank","width=900,height=900");
@@ -40,7 +40,7 @@ function App(){
  const mutate=(fn,a,m,d)=>setDb(p=>{const n=fn(p);return{...n,audit:[audit(a,m,d,user.name),...(n.audit||[])].slice(0,1000)}});
  const notify=(title,message)=>setDb(p=>({...p,notifications:[{id:id("n"),title,message,at:new Date().toISOString(),read:false},...p.notifications].slice(0,100)}));
  const nav=MODS.filter(x=>allowed.includes(x[0]));
- return <div className="app"><aside className="sidebar"><div className="brand"><div className="logo"><img src="./alribat-seal.svg" alt="شعار مدرسة الرباط"/></div><div><b>مدرسة الرباط</b><span>الإدارة والمالية</span></div></div><nav>{nav.map(x=><button key={x[0]} className={active===x[0]?"active":""} onClick={()=>{setActive(x[0]);setSearch("")}}><i>{x[1]}</i><span>{x[0]}</span></button>)}</nav><div className="sideFoot"><span>الإصدار</span><b>Central v1.2</b></div></aside><main><header><div><span className="mobileTitle">مدرسة الرباط</span><h2>{active}</h2></div><div className="headerActions"><button className="bell" onClick={()=>setModal({type:"notes"})}>🔔{db.notifications.some(x=>!x.read)&&<em>{db.notifications.filter(x=>!x.read).length}</em>}</button><div className="user"><div className="avatar">{(user.name||"م")[0]}</div><div><b>{user.name}</b><span>{user.role}</span></div></div></div></header><div className="content">
+ return <div className="app"><aside className="sidebar"><div className="brand"><div className="logo"><img src="./alribat-seal.svg" alt="شعار مدرسة الرباط"/></div><div><b>مدرسة الرباط</b><span>الإدارة والمالية</span></div></div><nav>{nav.map(x=><button key={x[0]} className={active===x[0]?"active":""} onClick={()=>{setActive(x[0]);setSearch("")}}><i>{x[1]}</i><span>{x[0]}</span></button>)}</nav><div className="sideFoot"><span>الإصدار</span><b>Central v1.2</b></div></aside><main><header><div className="headerTitle"><span className="mobileTitle">مدرسة الرباط</span><h2>{active}</h2><small>النظام المالي والإداري المركزي</small></div><div className="headerActions"><button className="bell" onClick={()=>setModal({type:"notes"})}>🔔{db.notifications.some(x=>!x.read)&&<em>{db.notifications.filter(x=>!x.read).length}</em>}</button><div className="user"><div className="avatar">{(user.name||"م")[0]}</div><div><b>{user.name}</b><span>{user.role}</span></div></div></div></header><div className="content">
  {active==="الرئيسية"&&<Dashboard db={db} go={setActive} user={user}/>}
  {active==="الطلاب"&&<Students db={db} search={search} setSearch={setSearch} mutate={mutate} setModal={setModal}/>}
  {active==="الرسوم والتحصيل"&&<Finance db={db} search={search} setSearch={setSearch} mutate={mutate} setModal={setModal} notify={notify}/>}
@@ -57,7 +57,45 @@ function App(){
  </div>
 }
 
-function Dashboard({db,go,user}){const fees=total(db.fees),cash=total(db.payments),exp=total(db.expenses),low=db.inventory.filter(x=>num(x.quantity)<=num(x.reorderLevel)),pending=db.requests.filter(x=>x.status==="قيد المراجعة");return <><div className="hero"><div><span className="eyebrow">النظام المالي والإداري</span><h1>مدرسة الرباط</h1><p>مرحباً {user.name}. نظام مركزي آمن مع مزامنة لحظية وحماية للرصيد والمخزون.</p></div><div className="hero-badge">{db.school.academicYear}</div></div><div className="cards"><Metric t="الطلاب النشطون" v={db.students.filter(x=>x.status!=="منسحب").length} s="طالب"/><Metric t="إجمالي الرسوم" v={money(fees)} s={db.school.currency}/><Metric t="المتحصل" v={money(cash)} s={db.school.currency}/><Metric t="صافي التدفق" v={money(cash-exp)} s={db.school.currency}/></div><div className="grid2"><section className="panel"><div className="panel-title"><h3>تنبيهات تشغيلية</h3><S tone={low.length+pending.length?"warn":"ok"}>{low.length+pending.length}</S></div>{low.length?<div className="notice warnBox"><b>مخزون منخفض</b><span>{low.length} صنف وصل إلى حد إعادة الطلب.</span></div>:<div className="notice"><b>المخزون</b><span>لا توجد أصناف منخفضة.</span></div>}{pending.length>0&&<div className="notice"><b>طلبات معلقة</b><span>{pending.length} طلب يحتاج مراجعة.</span></div>}</section><section className="panel"><div className="panel-title"><h3>اختصارات سريعة</h3></div><div className="quick"><button onClick={()=>go("الطلاب")}>الطلاب</button><button onClick={()=>go("الرسوم والتحصيل")}>التحصيل</button><button onClick={()=>go("المصروفات")}>المصروفات</button><button onClick={()=>go("المخزون")}>المخزون</button></div></section></div></>}
+function Dashboard({db,go,user}){
+ const fees=total(db.fees),cash=total(db.payments),exp=total(db.expenses),low=db.inventory.filter(x=>num(x.quantity)<=num(x.reorderLevel)),pending=db.requests.filter(x=>x.status==="قيد المراجعة");
+ const recent=[...db.notifications].slice(0,4);
+ return <>
+  <section className="dashHero">
+   <div className="dashWelcome"><span className="eyebrow">مرحبًا بك في نظام مدرسة الرباط</span><h1>مرحباً {user.name}</h1><p>إدارة مالية وإدارية موحدة، متابعة فورية، وصلاحيات حسب الدور.</p></div>
+   <div className="dashDate"><b>{new Date().toLocaleDateString("ar-SA",{weekday:"long"})}</b><span>{new Date().toLocaleDateString("ar-SA")}</span><small>{db.school.academicYear}</small></div>
+  </section>
+  <div className="cards dashMetrics">
+   <Metric t="الطلاب النشطون" v={db.students.filter(x=>x.status!=="منسحب").length} s="طالب وطالبة" icon="👥" tone="blue"/>
+   <Metric t="الموظفون" v={db.staff.filter(x=>x.status!=="منتهي").length} s="إداري وتعليمي" icon="🎓" tone="violet"/>
+   <Metric t="الرسوم المحصلة" v={money(cash)} s={db.school.currency} icon="🪙" tone="gold"/>
+   <Metric t="صافي التدفق" v={money(cash-exp)} s={db.school.currency} icon="📊" tone="green"/>
+  </div>
+  <div className="dashboardGrid">
+   <section className="panel dashPanel">
+    <div className="panel-title"><div><span className="eyebrow">نظرة سريعة</span><h3>الحالة التشغيلية</h3></div><button className="softLink" onClick={()=>go("التقارير")}>عرض التقارير</button></div>
+    <div className="opsGrid">
+      <div className="opsItem"><span>إجمالي الرسوم</span><b>{money(fees)}</b><small>{db.school.currency}</small></div>
+      <div className="opsItem"><span>المصروفات</span><b>{money(exp)}</b><small>{db.school.currency}</small></div>
+      <div className="opsItem"><span>طلبات معلقة</span><b>{pending.length}</b><small>طلب</small></div>
+      <div className="opsItem"><span>مخزون منخفض</span><b>{low.length}</b><small>صنف</small></div>
+    </div>
+    <div className="miniBars">
+      {[["الأساسي الأول",72],["الأساسي الثاني",84],["الأساسي الثالث",77],["الأساسي الرابع",64],["الأساسي الخامس",58]].map(([n,v])=><div key={n}><span>{n}</span><i><em style={{height:v+"%"}}></em></i><b>{v}</b></div>)}
+    </div>
+   </section>
+   <section className="panel dashPanel">
+    <div className="panel-title"><h3>أحدث الإشعارات</h3><button className="softLink" onClick={()=>go("الطلبات والموافقات")}>عرض الكل</button></div>
+    <div className="noticeList">{recent.length?recent.map((x,i)=><div className="noticeRow" key={x.id||i}><span className="noticeDot">●</span><div><b>{x.title}</b><small>{x.message}</small></div></div>):<div className="noticeRow"><span className="noticeDot">●</span><div><b>لا توجد إشعارات جديدة</b><small>سيظهر هنا آخر نشاطات النظام</small></div></div>}</div>
+   </section>
+   <section className="panel dashPanel">
+    <div className="panel-title"><h3>اختصارات سريعة</h3></div>
+    <div className="quick modernQuick"><button onClick={()=>go("الطلاب")}>👥 الطلاب</button><button onClick={()=>go("الرسوم والتحصيل")}>🪙 الرسوم</button><button onClick={()=>go("الحضور")}>📅 الحضور</button><button onClick={()=>go("التقارير")}>📊 التقارير</button></div>
+   </section>
+   <section className="panel quotePanel"><span>“ التربية والتوجيه ”</span><b>وحدة تسهم في بناء إنسان متميز</b><small>مدرسة الرباط الأساسية المختلطة الخاصة</small></section>
+  </div>
+ </>;
+}
 
 function Students({db,search,setSearch,mutate,setModal}){const rows=db.students.filter(x=>(x.name+" "+(x.grade||"")+" "+(x.parentPhone||"")).toLowerCase().includes(search.toLowerCase()));const del=x=>{if(db.fees.some(f=>f.studentId===x.id)||db.payments.some(p=>p.studentId===x.id)){alert("لا يمكن حذف طالب مرتبط بحركات مالية. غيّر حالته إلى منسحب.");return}if(confirm("تأكيد الحذف؟"))mutate(p=>({...p,students:p.students.filter(s=>s.id!==x.id)}),"حذف","الطلاب","حذف "+x.name)};return <section className="panel pagePanel"><Head title="الطلاب" desc="ملفات الطلاب وولي الأمر والحالة الدراسية." add="طالب" onAdd={()=>setModal({type:"student"})} search={search} setSearch={setSearch} extra={<button onClick={()=>csv("students.csv",db.students)}>تصدير</button>}/>{rows.length?<div className="tableWrap"><table><thead><tr><th>الاسم</th><th>الصف</th><th>الفصل</th><th>ولي الأمر</th><th>الهاتف</th><th>الحالة</th><th></th></tr></thead><tbody>{rows.map(x=><tr key={x.id}><td><b>{x.name}</b></td><td>{x.grade}</td><td>{x.className||"—"}</td><td>{x.parentName||"—"}</td><td>{x.parentPhone||"—"}</td><td><S tone={x.status==="نشط"?"ok":"warn"}>{x.status}</S></td><td className="actions"><button onClick={()=>mutate(p=>({...p,students:p.students.map(s=>s.id===x.id?{...s,status:s.status==="نشط"?"موقوف":"نشط"}:s)}),"تعديل","الطلاب","تغيير حالة "+x.name)}>تغيير الحالة</button><button className="danger" onClick={()=>del(x)}>حذف</button></td></tr>)}</tbody></table></div>:<Empty/>}</section>}
 
