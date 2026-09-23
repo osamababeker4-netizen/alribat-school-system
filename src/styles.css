@@ -63,3 +63,72 @@
   .printFooter{bottom:-15mm!important}
   .printWatermark{width:100mm!important;height:100mm!important;opacity:.045!important}
 }
+
+.reportPrintSheet{display:none}
+@media print{
+  body.report-print-mode .sidebar,
+  body.report-print-mode header,
+  body.report-print-mode .screenReport,
+  body.report-print-mode .printBrand,
+  body.report-print-mode .centralBadge,
+  body.report-print-mode .logoutFab{display:none!important}
+  body.report-print-mode .app,
+  body.report-print-mode main,
+  body.report-print-mode .content{display:block!important;width:auto!important;max-width:none!important;min-height:0!important;height:auto!important;margin:0!important;padding:0!important;overflow:visible!important;background:#fff!important}
+  body.report-print-mode .reportPrintSheet{
+    display:block!important;
+    position:relative;
+    width:186mm;
+    height:267mm;
+    margin:0 auto!important;
+    padding:10mm 11mm 9mm!important;
+    box-sizing:border-box;
+    overflow:hidden!important;
+    color:#202020;
+    background:#fff;
+    page-break-before:avoid!important;
+    page-break-after:avoid!important;
+    page-break-inside:avoid!important;
+    break-before:avoid!important;
+    break-after:avoid!important;
+    break-inside:avoid!important
+  }
+  body.report-print-mode .reportPrintSheet *{box-sizing:border-box}
+  body.report-print-mode .rpWatermark{position:absolute;left:50%;top:53%;transform:translate(-50%,-50%);width:95mm;height:95mm;opacity:.045;object-fit:contain;z-index:0}
+  body.report-print-mode .rpHeader,
+  body.report-print-mode .rpTitle,
+  body.report-print-mode .rpMetrics,
+  body.report-print-mode .rpBalances,
+  body.report-print-mode .rpBottom,
+  body.report-print-mode .rpFooter{position:relative;z-index:1}
+  body.report-print-mode .rpHeader{height:25mm;display:flex;align-items:center;gap:5mm;border-bottom:1.5px solid #0b3a69;padding-bottom:3mm}
+  body.report-print-mode .rpHeader img{width:21mm;height:21mm;object-fit:contain}
+  body.report-print-mode .rpHeader div{display:grid;gap:1mm;color:#0b3a69}
+  body.report-print-mode .rpHeader b{font-size:14pt}
+  body.report-print-mode .rpHeader span{font-size:8.5pt;font-weight:700;letter-spacing:.3px}
+  body.report-print-mode .rpHeader small{font-size:7.5pt;color:#8a6d28}
+  body.report-print-mode .rpTitle{padding:8mm 0 5mm}
+  body.report-print-mode .rpTitle span{font-size:8pt;color:#7c7368}
+  body.report-print-mode .rpTitle h1{font-size:20pt;margin:1.5mm 0 1mm;color:#0b3a69}
+  body.report-print-mode .rpTitle p{font-size:9pt;color:#625d56;margin:0}
+  body.report-print-mode .rpMetrics{display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-bottom:7mm}
+  body.report-print-mode .rpMetrics>div{border:1px solid #d9d1c5;border-radius:4mm;padding:4mm;min-height:27mm;display:grid;align-content:center}
+  body.report-print-mode .rpMetrics span{font-size:8.5pt;color:#6e675e}
+  body.report-print-mode .rpMetrics b{font-size:15pt;margin:1.2mm 0;color:#1f1f1f}
+  body.report-print-mode .rpMetrics small{font-size:7.5pt;color:#7f776e}
+  body.report-print-mode .rpBalances h2{font-size:12pt;margin:0 0 3mm;color:#1f1f1f}
+  body.report-print-mode .rpBalances table{width:100%;min-width:0!important;border-collapse:collapse;font-size:8pt}
+  body.report-print-mode .rpBalances th,
+  body.report-print-mode .rpBalances td{padding:2.2mm 2mm;border-bottom:1px solid #e2ddd5;background:transparent!important}
+  body.report-print-mode .rpBalances th{color:#5f5851;font-weight:700;border-top:1px solid #d9d1c5}
+  body.report-print-mode .rpEmpty{height:42mm;border:1px dashed #d8d0c4;border-radius:4mm;display:grid;place-items:center;color:#676057;font-size:10pt}
+  body.report-print-mode .rpBottom{position:absolute;left:11mm;right:11mm;bottom:23mm;display:flex;align-items:end;justify-content:space-between}
+  body.report-print-mode .rpIssued{display:grid;gap:1mm;font-size:8pt;color:#6e675e}
+  body.report-print-mode .rpIssued b{font-size:9pt;color:#1f1f1f}
+  body.report-print-mode .rpIssued small{font-size:7pt}
+  body.report-print-mode .rpSeal{display:flex;align-items:center;gap:2mm;color:#123f7a;font-size:8pt}
+  body.report-print-mode .rpSeal img{width:26mm;height:26mm;object-fit:contain;opacity:.9}
+  body.report-print-mode .rpFooter{position:absolute;left:11mm;right:11mm;bottom:8mm;padding-top:2.5mm;border-top:1.5px solid #0b3a69;display:flex;justify-content:space-between;gap:5mm;color:#0b3a69;font-size:7.5pt}
+  body.report-print-mode .rpFooter span{color:#625d56;font-size:7pt}
+  @page{size:A4 portrait;margin:15mm 12mm}
+}
