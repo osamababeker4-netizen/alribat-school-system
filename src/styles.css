@@ -171,3 +171,112 @@
   body.report-print-mode .orEmpty{height:40mm!important;border:1px dashed #cfc7bb!important;border-radius:3mm!important;background:#ffffffc9!important;display:grid!important;place-items:center!important;font-size:9pt!important;color:#615a51!important}
   body.report-print-mode .orIssued{position:absolute!important;right:0!important;bottom:0!important;font-size:7.5pt!important;color:#5f5851!important}
 }
+
+:root{
+ --navy:#0b3a69;--navy2:#0d4f87;--navy3:#082d52;--gold:#d9b14f;--gold2:#f0cf78;
+ --paper:#f6f9fc;--ink:#17324c;--muted:#6f7b88;--line:#d9e3ed;--white:#fff;
+}
+body{background:
+ radial-gradient(circle at 8% 8%,#e7eef7 0,transparent 22%),
+ radial-gradient(circle at 92% 2%,#f8edd0 0,transparent 18%),
+ linear-gradient(135deg,#f7f9fc,#eef4fa)!important;color:var(--ink)!important}
+.app{grid-template-columns:250px 1fr}
+.sidebar{
+ background:linear-gradient(180deg,#0b3a69 0%,#07315a 58%,#052644 100%)!important;
+ border-left:1px solid #ffffff14;box-shadow:-14px 0 40px #0b3a6920
+}
+.brand{border-bottom:1px solid #ffffff26!important;padding-bottom:20px!important}
+.logo{width:64px!important;height:64px!important;border-radius:50%!important;box-shadow:0 0 0 3px #d9b14f,0 8px 28px #0004!important;background:#fff!important}
+.brand b{font-size:16px!important}.brand span{color:#d8e6f2!important}
+nav button{color:#d7e6f3!important;border:1px solid transparent}
+nav button:hover{background:#ffffff0d!important;border-color:#ffffff12!important}
+nav button.active{
+ background:linear-gradient(135deg,#f0cf78,#d7a63f)!important;color:#0b3a69!important;
+ box-shadow:0 10px 24px #00000024!important;border-color:#f4db96!important;font-weight:800
+}
+nav button.active i{filter:none}
+.sideFoot{background:#ffffff0b!important;border:1px solid #ffffff12!important}
+main{background:transparent!important}
+header{
+ height:78px!important;background:#ffffffee!important;border-bottom:1px solid #d7e3ef!important;
+ box-shadow:0 6px 22px #10395e0d!important
+}
+.headerTitle{display:grid;gap:2px}.headerTitle h2{color:#0b3a69!important;font-size:21px!important}.headerTitle small{font-size:11px;color:#8290a0}
+.avatar{background:linear-gradient(135deg,#0b3a69,#2d6ca4)!important;box-shadow:0 0 0 4px #e8f0f8!important}
+.bell{border-color:#d7e2ec!important;color:#0b3a69!important}
+.content{max-width:1550px!important;padding:24px!important}
+.panel,.card{
+ border:1px solid #dae5ef!important;box-shadow:0 12px 32px #10395e0b!important;background:#ffffffec!important
+}
+.pagePanel{background:#ffffffef!important}
+.primary{background:linear-gradient(135deg,#0b4c87,#0b3a69)!important;box-shadow:0 8px 20px #0b3a6920!important}
+.toolbar button.selected,.attButtons button.selected{background:#0b4c87!important;border-color:#0b4c87!important}
+.status.ok{background:#e6f8f1!important;color:#087455!important}.status.warn{background:#fff5dc!important;color:#9b6c09!important}.status.bad{background:#fff0ee!important;color:#a33e31!important}
+
+.dashHero{
+ position:relative;display:flex;justify-content:space-between;align-items:center;gap:24px;
+ min-height:170px;padding:28px 30px;border-radius:26px;
+ background:
+ linear-gradient(115deg,#ffffffed,#ffffffd9),
+ url("./alribat-seal.svg") left 4% center/150px no-repeat;
+ border:1px solid #d9e4ef;box-shadow:0 18px 44px #10395e10;overflow:hidden
+}
+.dashHero:before{
+ content:"";position:absolute;inset:0;background:
+ radial-gradient(circle at 85% 0%,#d7b25224,transparent 26%),
+ radial-gradient(circle at 5% 110%,#0b4c8713,transparent 34%);pointer-events:none
+}
+.dashWelcome,.dashDate{position:relative;z-index:1}
+.dashWelcome .eyebrow{color:#b28a28;font-weight:800}.dashWelcome h1{font-size:31px;color:#0b3a69;margin:6px 0}.dashWelcome p{margin:0;color:#697887}
+.dashDate{
+ min-width:185px;background:#f8fbff;border:1px solid #d8e4ef;border-radius:18px;padding:16px;
+ display:grid;gap:4px;text-align:center;box-shadow:0 8px 22px #123c6010
+}
+.dashDate b{color:#0b3a69}.dashDate span{font-size:13px;color:#556879}.dashDate small{font-size:11px;color:#b28a28;font-weight:700}
+.dashMetrics{margin:18px 0!important;grid-template-columns:repeat(4,1fr)!important}
+.metricCard{display:flex!important;align-items:center;gap:14px;min-height:112px!important;padding:18px!important;position:relative;overflow:hidden}
+.metricCard:after{content:"";position:absolute;width:90px;height:90px;border-radius:50%;left:-28px;bottom:-35px;opacity:.45}
+.metricIcon{width:50px;height:50px;border-radius:15px;display:grid;place-items:center;font-size:23px;flex:none}
+.metricCard strong{font-size:25px!important;color:#0b3a69!important;margin:4px 0!important}.metricCard>div:last-child{min-width:0}
+.metricCard.blue .metricIcon{background:#e8f3ff;color:#1478d4}.metricCard.blue:after{background:#d9ecff}
+.metricCard.violet .metricIcon{background:#f2eaff;color:#7b37c8}.metricCard.violet:after{background:#eee3ff}
+.metricCard.gold .metricIcon{background:#fff5d8;color:#c48b0d}.metricCard.gold:after{background:#fff0bd}
+.metricCard.green .metricIcon{background:#e3f8f0;color:#00936a}.metricCard.green:after{background:#cff3e5}
+.dashboardGrid{display:grid;grid-template-columns:1.4fr 1fr;gap:18px}
+.dashPanel{min-height:220px}.softLink{border:0;background:transparent;color:#0b5aa0;font-weight:700;padding:8px}
+.opsGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}
+.opsItem{padding:13px;border-radius:14px;background:#f7faff;border:1px solid #e1e9f1;display:grid;gap:4px}
+.opsItem span{font-size:11px;color:#71808f}.opsItem b{font-size:18px;color:#0b3a69}.opsItem small{font-size:10px;color:#9a7a2b}
+.miniBars{height:150px;display:flex;align-items:flex-end;gap:12px;padding:18px 8px 0;border-top:1px solid #edf2f7}
+.miniBars>div{flex:1;display:grid;grid-template-rows:1fr auto auto;gap:4px;text-align:center;height:100%}
+.miniBars span{font-size:10px;color:#667887;align-self:end}.miniBars i{height:100px;border-radius:7px 7px 2px 2px;background:#edf4fb;display:flex;align-items:end;overflow:hidden}
+.miniBars em{display:block;width:100%;background:linear-gradient(180deg,#58a7ef,#246eb2);border-radius:6px 6px 0 0}.miniBars b{font-size:10px;color:#0b3a69}
+.noticeList{display:grid;gap:9px;margin-top:15px}.noticeRow{display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:13px;border:1px solid #e6edf4;background:#fbfdff}
+.noticeDot{color:#d7a63f;font-size:14px}.noticeRow b,.noticeRow small{display:block}.noticeRow b{font-size:13px;color:#183e62}.noticeRow small{font-size:11px;color:#7a8794;margin-top:3px}
+.modernQuick{grid-template-columns:1fr 1fr!important}.modernQuick button{background:#f8fbff!important;border-color:#dce7f1!important;color:#0b3a69!important;font-weight:700}
+.quotePanel{display:grid;place-items:center;text-align:center;align-content:center;gap:7px;background:
+ linear-gradient(135deg,#ffffffed,#f9fbfeee),url("./alribat-seal.svg") left -15px bottom -25px/130px no-repeat!important}
+.quotePanel span{color:#b18a2e;font-size:12px}.quotePanel b{font-size:19px;color:#0b3a69}.quotePanel small{color:#73808d}
+@media(max-width:1050px){.dashMetrics{grid-template-columns:1fr 1fr!important}.dashboardGrid{grid-template-columns:1fr}.opsGrid{grid-template-columns:1fr 1fr}}
+@media(max-width:680px){
+ .content{padding:12px 12px 92px!important}.dashHero{min-height:150px;padding:20px;align-items:flex-start}.dashWelcome h1{font-size:24px}.dashDate{min-width:110px;padding:10px}.dashMetrics{grid-template-columns:1fr 1fr!important}.metricCard{min-height:104px!important;padding:13px!important;gap:10px}.metricIcon{width:42px;height:42px}.metricCard strong{font-size:18px!important}.opsGrid{grid-template-columns:1fr 1fr}.dashboardGrid{gap:12px}
+}
+
+/* Login redesigned to match royal blue + gold reference */
+.loginPage{
+ background:
+ linear-gradient(120deg,#f8fbffea,#f6f9fddf),
+ radial-gradient(circle at 12% 90%,#d9b14f33,transparent 30%),
+ radial-gradient(circle at 90% 10%,#0b4c8726,transparent 32%)!important
+}
+.loginPage:before{content:"";position:absolute;inset:0;background:url("./alribat-seal.svg") right 6% bottom 8%/420px no-repeat;opacity:.025;pointer-events:none}
+.loginCard{
+ width:min(500px,94vw)!important;border-radius:30px!important;padding:30px!important;
+ border:1px solid #cfddea!important;box-shadow:0 34px 90px #0b3a6922!important;background:#fffffff2!important
+}
+.loginBrand{border-bottom:1px solid #e2eaf2!important}.loginLogo{width:82px!important;height:82px!important;border-radius:50%!important;box-shadow:0 0 0 3px #d9b14f,0 10px 28px #0b3a6924!important}
+.loginBrand span{color:#0b3a69!important;font-size:20px!important}.loginBrand small{color:#687889!important}
+.loginCopy .eyebrow{color:#b28a28!important;font-weight:800}.loginCopy h1{color:#0b3a69!important;font-size:34px!important}.loginCopy p{color:#6d7a87!important}
+.loginForm input{border:1px solid #cddbe7!important;background:#fbfdff!important}.loginForm input:focus{outline:2px solid #d9b14f55;border-color:#c59a34!important}
+.loginButton{background:linear-gradient(135deg,#0e5b9e,#0b3a69)!important;border:1px solid #1a5f98!important;box-shadow:0 10px 24px #0b3a6925!important}
+.switchAuth{color:#0b4c87!important}.loginFoot{border-top-color:#e1eaf2!important;color:#657685!important}
