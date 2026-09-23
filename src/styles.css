@@ -42,3 +42,24 @@
 .centralBadge.sync{background:#fff7e3;color:#7a5b16;border-color:#ead38d}
 .centralBadge.error{background:#fff0ee;color:#9a3d31;border-color:#e5b7af}
 @media(max-width:680px){.content:before{width:78vw;height:78vw;opacity:.02}}
+
+@media print{
+  @page{size:A4 portrait;margin:25mm 12mm 20mm}
+  html,body,#root,.app,main,.content,.panel,.pagePanel{height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}
+  body{margin:0!important}
+  .content{padding:0!important;max-width:none!important}
+  .pagePanel{padding:0!important;margin:0!important}
+  .printBrand{display:block!important;height:0!important;min-height:0!important;overflow:visible!important;margin:0!important;padding:0!important}
+  .reportCards{grid-template-columns:repeat(2,1fr)!important;gap:8mm!important;margin:5mm 0 7mm!important}
+  .reportCards .card{padding:4mm!important;min-height:28mm!important;break-inside:avoid!important}
+  .reportCards .card strong{font-size:18px!important;margin:2mm 0!important}
+  .empty{height:62mm!important;min-height:0!important;padding:8mm!important;break-inside:avoid!important}
+  .tableWrap,table,tr,.card,.empty{break-inside:avoid!important;page-break-inside:avoid!important}
+  h2,h3,p{break-after:avoid!important;page-break-after:avoid!important}
+  .printHeader{top:-20mm!important;height:17mm!important}
+  .printHeader img{width:15mm!important;height:15mm!important}
+  .printStamp{bottom:-13mm!important}
+  .printStamp img{width:21mm!important;height:21mm!important}
+  .printFooter{bottom:-15mm!important}
+  .printWatermark{width:100mm!important;height:100mm!important;opacity:.045!important}
+}
