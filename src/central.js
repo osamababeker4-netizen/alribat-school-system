@@ -12,11 +12,11 @@ let versionCache={};
 let lastSnapshot={};
 
 const WRITE={
-  "مدير النظام":["school","students","fees","payments","expenses","staff","attendance","inventory","moves","requests","audit","notifications"],
-  "مدير المدرسة":["school","students","fees","payments","expenses","staff","attendance","inventory","moves","requests","audit","notifications"],
+  "مدير النظام":["school","students","fees","payments","expenses","staff","attendance","inventory","moves","requests","grades","audit","notifications"],
+  "مدير المدرسة":["school","students","fees","payments","expenses","staff","attendance","inventory","moves","requests","grades","audit","notifications"],
   "محاسب":["students","fees","payments","expenses","audit","notifications"],
   "أمين المستودع":["inventory","moves","requests","audit","notifications"],
-  "مشرف/معلم":["students","attendance","requests","audit","notifications"]
+  "مشرف/معلم":["students","attendance","grades","requests","audit","notifications"]
 };
 const snap=v=>JSON.stringify(v??null);
 
@@ -26,10 +26,13 @@ export async function getSession(){
   if(error)throw error;
   return data.session;
 }
-export async function signIn(email,password){
-  const {data,error}=await supabase.auth.signInWithPassword({email,password});
+export async function signIn(identifier,password){
+  const res=await fetch(url+"/functions/v1/login-identifier",{method:"POST",headers:{"content-type":"application/json","apikey":anon},body:JSON.stringify({identifier,password})});
+  const body=await res.json();
+  if(!res.ok)throw new Error(body?.error||"بيانات الدخول غير صحيحة");
+  const {error}=await supabase.auth.setSession({access_token:body.access_token,refresh_token:body.refresh_token});
   if(error)throw error;
-  return data.session;
+  return (await supabase.auth.getSession()).data.session;
 }
 export async function signUpAccount(email,password,full_name){
   const {data,error}=await supabase.auth.signUp({
@@ -40,9 +43,10 @@ export async function signUpAccount(email,password,full_name){
   if(error)throw error;
   return data;
 }
-export async function inviteSchoolUser(email,full_name,role){
-  const {data,error}=await supabase.rpc("invite_school_user",{
+export async function inviteSchoolUser(email,phone,full_name,role){
+  const {data,error}=await supabase.rpc("invite_school_user_v2",{
     p_email:String(email).trim().toLowerCase(),
+    p_phone:String(phone||"").trim(),
     p_full_name:full_name,
     p_role:role
   });
@@ -58,7 +62,7 @@ export async function signOut(){
 export async function getProfile(){
   const session=await getSession();
   if(!session)return null;
-  const {data,error}=await supabase.from("profiles").select("user_id,full_name,role,active,must_change_password").eq("user_id",session.user.id).single();
+  const {data,error}=await supabase.from("profiles").select("user_id,full_name,role,active,must_change_password,phone").eq("user_id",session.user.id).single();
   if(error)throw error;
   if(!data?.active)throw new Error("هذا الحساب موقوف");
   profileCache={...data,email:session.user.email};
@@ -79,8 +83,8 @@ export async function centralLoad(blank){
   }
   let users=[{id:"u-admin",authId:profile.user_id,name:profile.full_name,email:profile.email,role:profile.role,active:profile.active}];
   if(["مدير النظام","مدير المدرسة"].includes(profile.role)){
-    const {data:profiles,error:pe}=await supabase.from("profiles").select("user_id,full_name,role,active");
-    if(!pe&&profiles?.length) users=profiles.map((p,idx)=>({id:p.user_id===profile.user_id?"u-admin":"auth-"+idx,authId:p.user_id,name:p.full_name,email:p.user_id===profile.user_id?profile.email:"",role:p.role,active:p.active}));
+    const {data:profiles,error:pe}=await supabase.from("profiles").select("user_id,full_name,role,active,phone");
+    if(!pe&&profiles?.length) users=profiles.map((p,idx)=>({id:p.user_id===profile.user_id?"u-admin":"auth-"+idx,authId:p.user_id,name:p.full_name,email:p.user_id===profile.user_id?profile.email:"",phone:p.phone||"",role:p.role,active:p.active}));
   }
   next.users=users;
   next.central={enabled:true,userId:profile.user_id,role:profile.role,syncedAt:new Date().toISOString()};
