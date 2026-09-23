@@ -132,3 +132,42 @@
   body.report-print-mode .rpFooter span{color:#625d56;font-size:7pt}
   @page{size:A4 portrait;margin:15mm 12mm}
 }
+
+/* Official Al-Ribat A4 letterhead — exact uploaded template */
+@media print{
+  @page{size:A4 portrait;margin:0!important}
+  body.report-print-mode{margin:0!important;padding:0!important;background:#fff!important}
+  body.report-print-mode .app,
+  body.report-print-mode main,
+  body.report-print-mode .content{display:block!important;width:210mm!important;height:297mm!important;min-height:0!important;max-height:297mm!important;margin:0!important;padding:0!important;overflow:hidden!important}
+  body.report-print-mode .reportPrintSheet.officialLetterhead{
+    display:block!important;position:relative!important;width:210mm!important;height:297mm!important;
+    min-height:297mm!important;max-height:297mm!important;margin:0!important;padding:0!important;overflow:hidden!important;
+    background:#fff!important;page-break-before:avoid!important;page-break-after:avoid!important;page-break-inside:avoid!important;
+    break-before:avoid!important;break-after:avoid!important;break-inside:avoid!important
+  }
+  body.report-print-mode .officialLetterheadBg{
+    position:absolute!important;inset:0!important;width:210mm!important;height:297mm!important;
+    object-fit:fill!important;display:block!important;z-index:0!important
+  }
+  body.report-print-mode .officialReportBody{
+    position:absolute!important;z-index:2!important;top:61mm!important;right:18mm!important;left:18mm!important;bottom:30mm!important;
+    overflow:hidden!important;color:#17202a!important;direction:rtl!important
+  }
+  body.report-print-mode .orTitle{padding:0 0 5mm!important}
+  body.report-print-mode .orTitle span{font-size:8pt!important;color:#6b6258!important}
+  body.report-print-mode .orTitle h1{font-size:18pt!important;color:#0b345e!important;margin:1.5mm 0 1mm!important}
+  body.report-print-mode .orTitle p{font-size:8.5pt!important;color:#6b6258!important;margin:0!important}
+  body.report-print-mode .orMetrics{display:grid!important;grid-template-columns:1fr 1fr!important;gap:4mm!important;margin:3mm 0 6mm!important}
+  body.report-print-mode .orMetrics>div{border:1px solid #d8d3ca!important;border-radius:3mm!important;padding:3.5mm!important;min-height:23mm!important;background:#ffffffd9!important;display:grid!important;align-content:center!important}
+  body.report-print-mode .orMetrics span{font-size:8pt!important;color:#625c54!important}
+  body.report-print-mode .orMetrics b{font-size:13pt!important;margin:1mm 0!important;color:#17202a!important}
+  body.report-print-mode .orMetrics small{font-size:7pt!important;color:#6e675e!important}
+  body.report-print-mode .orBalances h2{font-size:11pt!important;margin:0 0 2.5mm!important;color:#17202a!important}
+  body.report-print-mode .orBalances table{width:100%!important;min-width:0!important;border-collapse:collapse!important;font-size:7.5pt!important;background:#ffffffd9!important}
+  body.report-print-mode .orBalances th,
+  body.report-print-mode .orBalances td{padding:2mm 1.8mm!important;border-bottom:1px solid #ddd7ce!important;background:transparent!important}
+  body.report-print-mode .orBalances th{font-weight:700!important;color:#514b44!important}
+  body.report-print-mode .orEmpty{height:40mm!important;border:1px dashed #cfc7bb!important;border-radius:3mm!important;background:#ffffffc9!important;display:grid!important;place-items:center!important;font-size:9pt!important;color:#615a51!important}
+  body.report-print-mode .orIssued{position:absolute!important;right:0!important;bottom:0!important;font-size:7.5pt!important;color:#5f5851!important}
+}
