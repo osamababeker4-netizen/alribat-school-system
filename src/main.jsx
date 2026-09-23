@@ -2,6 +2,7 @@ import{centralEnabled,inviteSchoolUser}from"./central.js";
 import React,{useEffect,useMemo,useRef,useState}from"react";
 import{audit,backup,balance,clear,csv,fstatus,id,load,money,paid,restore,save,total}from"./store.js";
 import"./styles.css";
+import{LETTERHEAD_IMAGE}from"./letterhead.js";
 
 const MODS=[["الرئيسية","⌂"],["الطلاب","🎓"],["الرسوم والتحصيل","💳"],["المصروفات","🧾"],["الموظفون","👥"],["الحضور","✓"],["المخزون","▣"],["الطلبات والموافقات","↔"],["التقارير","▤"],["المستخدمون والصلاحيات","⚙"]];
 const PERMS={"مدير النظام":MODS.map(x=>x[0]),"مدير المدرسة":MODS.map(x=>x[0]),"محاسب":["الرئيسية","الطلاب","الرسوم والتحصيل","المصروفات","التقارير"],"أمين المستودع":["الرئيسية","المخزون","الطلبات والموافقات","التقارير"],"مشرف/معلم":["الرئيسية","الطلاب","الحضور","الطلبات والموافقات"]};
@@ -75,13 +76,7 @@ function Requests({db,mutate,setModal,user}){const decide=(x,st)=>mutate(p=>({..
 
 function Reports({db}){
  const fees=total(db.fees),cash=total(db.payments),exp=total(db.expenses),open=db.fees.filter(x=>balance(db,x)>0);
- const printReport=()=>{
-   const done=()=>document.body.classList.remove("report-print-mode");
-   document.body.classList.add("report-print-mode");
-   window.addEventListener("afterprint",done,{once:true});
-   setTimeout(()=>window.print(),60);
-   setTimeout(done,5000);
- };
+ const printReport=()=>{const done=()=>document.body.classList.remove("report-print-mode");document.body.classList.add("report-print-mode");window.addEventListener("afterprint",done,{once:true});setTimeout(()=>window.print(),50);setTimeout(done,5000)};
  return <>
   <section className="panel pagePanel screenReport">
    <Head title="التقارير" desc="ملخص مالي وتقارير قابلة للطباعة والتصدير."/>
@@ -89,19 +84,19 @@ function Reports({db}){
    <div className="reportActions"><button onClick={printReport}>طباعة</button><button onClick={()=>csv("fees-report.csv",db.fees.map(x=>({...x,paid:paid(db,x.id),balance:balance(db,x),status:fstatus(db,x)})))}>تصدير الرسوم</button><button onClick={()=>csv("payments-report.csv",db.payments)}>تصدير الإيصالات</button><button onClick={()=>csv("inventory-report.csv",db.inventory)}>تصدير المخزون</button></div>
    <h3>الرسوم ذات الرصيد</h3>{open.length?<div className="tableWrap"><table><thead><tr><th>الطالب</th><th>النوع</th><th>الإجمالي</th><th>المدفوع</th><th>الرصيد</th></tr></thead><tbody>{open.map(x=><tr key={x.id}><td>{x.studentName}</td><td>{x.type}</td><td>{money(x.amount)}</td><td>{money(paid(db,x.id))}</td><td><b>{money(balance(db,x))}</b></td></tr>)}</tbody></table></div>:<Empty text="لا توجد أرصدة مستحقة"/>}
   </section>
-  <section className="reportPrintSheet">
-   <img className="rpWatermark" src="./alribat-seal.svg" alt=""/>
-   <header className="rpHeader"><img src="./alribat-seal.svg" alt="شعار مدرسة الرباط"/><div><b>مدرسة الرباط الأساسية المختلطة الخاصة</b><span>AL-RIBAT PRIVATE CO-ED BASIC SCHOOL</span><small>PORT SUDAN • تأسست 2000م</small></div></header>
-   <div className="rpTitle"><span>تقرير مالي</span><h1>الملخص المالي</h1><p>تقرير صادر من النظام المالي والإداري المركزي</p></div>
-   <div className="rpMetrics">
-    <div><span>إجمالي الرسوم</span><b>{money(fees)}</b><small>{db.school.currency}</small></div>
-    <div><span>المتحصل</span><b>{money(cash)}</b><small>{db.school.currency}</small></div>
-    <div><span>المصروفات</span><b>{money(exp)}</b><small>{db.school.currency}</small></div>
-    <div><span>صافي التدفق</span><b>{money(cash-exp)}</b><small>{db.school.currency}</small></div>
+  <section className="reportPrintSheet officialLetterhead">
+   <img className="officialLetterheadBg" src={LETTERHEAD_IMAGE} alt="ترويسة مدرسة الرباط"/>
+   <div className="officialReportBody">
+    <div className="orTitle"><span>تقرير مالي</span><h1>الملخص المالي</h1><p>تقرير صادر من النظام المالي والإداري المركزي</p></div>
+    <div className="orMetrics">
+      <div><span>إجمالي الرسوم</span><b>{money(fees)}</b><small>{db.school.currency}</small></div>
+      <div><span>المتحصل</span><b>{money(cash)}</b><small>{db.school.currency}</small></div>
+      <div><span>المصروفات</span><b>{money(exp)}</b><small>{db.school.currency}</small></div>
+      <div><span>صافي التدفق</span><b>{money(cash-exp)}</b><small>{db.school.currency}</small></div>
+    </div>
+    <div className="orBalances"><h2>الرسوم ذات الرصيد</h2>{open.length?<table><thead><tr><th>الطالب</th><th>النوع</th><th>الإجمالي</th><th>المدفوع</th><th>الرصيد</th></tr></thead><tbody>{open.slice(0,8).map(x=><tr key={x.id}><td>{x.studentName}</td><td>{x.type}</td><td>{money(x.amount)}</td><td>{money(paid(db,x.id))}</td><td>{money(balance(db,x))}</td></tr>)}</tbody></table>:<div className="orEmpty">لا توجد أرصدة مستحقة</div>}</div>
+    <div className="orIssued">تاريخ الإصدار: <b>{new Date().toLocaleDateString("ar-SA")}</b></div>
    </div>
-   <div className="rpBalances"><h2>الرسوم ذات الرصيد</h2>{open.length?<table><thead><tr><th>الطالب</th><th>النوع</th><th>الإجمالي</th><th>المدفوع</th><th>الرصيد</th></tr></thead><tbody>{open.slice(0,8).map(x=><tr key={x.id}><td>{x.studentName}</td><td>{x.type}</td><td>{money(x.amount)}</td><td>{money(paid(db,x.id))}</td><td>{money(balance(db,x))}</td></tr>)}</tbody></table>:<div className="rpEmpty">لا توجد أرصدة مستحقة</div>}</div>
-   <div className="rpBottom"><div className="rpIssued"><span>تاريخ الإصدار</span><b>{new Date().toLocaleDateString("ar-SA")}</b><small>مستند صادر إلكترونيًا من نظام مدرسة الرباط</small></div><div className="rpSeal"><img src="./alribat-stamp.svg" alt="الختم الرسمي"/><span>الختم الرسمي</span></div></div>
-   <footer className="rpFooter"><b>مدرسة الرباط الأساسية المختلطة الخاصة</b><span>AL-RIBAT PRIVATE CO-ED BASIC SCHOOL • PORT SUDAN</span></footer>
   </section>
  </>;
 }
