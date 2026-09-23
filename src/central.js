@@ -139,3 +139,11 @@ export function subscribeCentralChanges(onChange){
     .subscribe();
   return()=>{supabase.removeChannel(channel)};
 }
+
+export async function updateMyPhone(phone){
+  const normalized=String(phone||"").replace(/[^0-9+]/g,"");
+  const {data,error}=await supabase.rpc("update_my_phone",{p_phone:normalized});
+  if(error)throw error;
+  if(profileCache)profileCache.phone=normalized;
+  return data;
+}
