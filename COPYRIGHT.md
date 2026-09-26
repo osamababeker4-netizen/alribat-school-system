@@ -3,7 +3,7 @@
 ## Alribat School System — مدرسة الرباط
 
 **Software owner / intellectual-property claimant:** Eng. Osama Ismail  
-**Release:** v1.5.0  
+**Release:** v1.5.1  
 **Ownership record date:** 2026-09-26  
 **Repository:** osamababeker4-netizen/alribat-school-system
 
@@ -19,7 +19,7 @@ I, **Eng. Osama Ismail**, identify myself as the owner/claimant of the software 
 
 **Electronic signature:** Eng. Osama Ismail  
 **Date:** 2026-09-26  
-**Release:** v1.5.0
+**Release:** v1.5.1
 
 The approved handwritten signature is stored at `public/alribat-owner-signature.svg` and is part of this ownership record. The Git commit history and timestamps provide a separate technical record of when this notice and the related source revisions were committed.
 
