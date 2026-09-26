@@ -28,7 +28,7 @@ create table if not exists public.school_modules(
   updated_at timestamptz not null default now(),
   version bigint not null default 0,
   constraint allowed_module check(module in (
-    'school','students','fees','payments','expenses','staff','attendance',
+    'school','students','fees','payments','expenses','staff','staffAttendance','attendance',
     'inventory','moves','requests','audit','notifications','grades'
   ))
 );
@@ -333,6 +333,7 @@ insert into public.school_modules(module,data) values
 ('payments','[]'::jsonb),
 ('expenses','[]'::jsonb),
 ('staff','[]'::jsonb),
+('staffAttendance','[]'::jsonb),
 ('attendance','[]'::jsonb),
 ('inventory','[]'::jsonb),
 ('moves','[]'::jsonb),
