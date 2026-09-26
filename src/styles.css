@@ -435,7 +435,7 @@ header{backdrop-filter:blur(16px) saturate(1.18)!important}
 @media(max-width:1120px){.opsGrid{grid-template-columns:repeat(3,1fr)}.staffAttMetrics{grid-template-columns:1fr 1fr!important}}
 @media(max-width:680px){.opsGrid{grid-template-columns:1fr 1fr}.staffAttMetrics{grid-template-columns:1fr 1fr!important}.staffAttToolbar{align-items:stretch;display:grid}.staffAttToolbar input{max-width:none;width:100%}.staffAttTable .actions{min-width:190px}}
 
-/* ALRIBAT OFFICIAL DOCUMENT IDENTITY v1.5.1 */
+/* ALRIBAT OFFICIAL DOCUMENT IDENTITY v1.6.0 */
 @media print{
   .officialGenericHeader{
     display:grid!important;grid-template-columns:1fr 18mm 1fr!important;gap:4mm!important;
@@ -503,4 +503,171 @@ header{backdrop-filter:blur(16px) saturate(1.18)!important}
     font-size:6.8pt!important;color:#66727d!important
   }
   body.report-print-mode .officialDocFooter b{color:#0b3a69!important;font-size:6.8pt!important}
+}
+
+/* ALRIBAT ORIGINAL GOLD IDENTITY v1.6.0 */
+:root{
+ --ribat-gold:#c9961a;--ribat-gold-2:#e6bd4b;--ribat-gold-3:#a97409;--ribat-gold-dark:#8f6208;
+ --ribat-black:#0b0b0a;--ribat-charcoal:#1b1812;--ribat-ivory:#fffaf0;--ribat-surface:#fffdf8;
+ --ribat-text:#2b2417;--ribat-muted:#786b4e;--ribat-line:#e5d7b4;--ribat-shadow:0 18px 44px #5b430d16
+}
+html,body{background:#fffaf0!important;color:var(--ribat-text)!important}
+body{
+ background:
+  radial-gradient(circle at 8% 8%,#e6bd4b20 0,transparent 24%),
+  radial-gradient(circle at 92% 2%,#c9961a17 0,transparent 20%),
+  linear-gradient(135deg,#fffdf8 0%,#fff8e8 58%,#f8efd9 100%)!important
+}
+.app{background:transparent!important}
+main{position:relative!important;background:transparent!important}
+main:before{
+ content:"";position:fixed;z-index:0;inset:105px 0 0 250px;
+ background-image:var(--ribat-original-logo);background-repeat:no-repeat;background-position:center 54%;
+ background-size:min(58vw,720px) auto;opacity:.018;pointer-events:none;filter:saturate(.92)
+}
+header,.content{position:relative;z-index:1}
+.sidebar{
+ background:
+  radial-gradient(circle at 50% -8%,#c9961a30,transparent 28%),
+  linear-gradient(180deg,#17130c 0%,#0e0c08 58%,#080706 100%)!important;
+ border-left:1px solid #d5ab492c!important;box-shadow:-14px 0 42px #00000024!important
+}
+.sidebar:before{background:linear-gradient(135deg,#e6bd4b0b,transparent 42%)!important}
+.brand{border-bottom:1px solid #d5ab4938!important;gap:12px!important}
+.logo{
+ width:112px!important;height:78px!important;border-radius:16px!important;padding:7px!important;
+ background:#070706!important;border:1px solid #c9961a!important;
+ box-shadow:0 0 0 2px #e6bd4b40,0 10px 30px #0005!important
+}
+.logo img,.loginLogo img,.logoSettings img{width:100%!important;height:100%!important;object-fit:contain!important}
+.brand b{color:#f2d77f!important}.brand span{color:#d5c69b!important}
+nav button{color:#eadfbf!important}
+nav button:hover{background:#c9961a12!important;border-color:#c9961a30!important;color:#fff4d5!important}
+nav button.active{
+ background:linear-gradient(135deg,#f0cf78,#c9961a)!important;color:#17120a!important;
+ border-color:#f4d982!important;box-shadow:0 12px 28px #0005!important
+}
+.sideFoot{background:#c9961a0d!important;border:1px solid #c9961a2d!important}
+.sideFoot span,.sideFoot small{color:#d8cba8!important}.sideFoot b{color:#f0cf78!important}
+header{
+ background:#fffaf0ee!important;border-bottom:1px solid #e3d1a4!important;
+ box-shadow:0 7px 24px #5a430d10!important;backdrop-filter:blur(16px) saturate(1.12)!important
+}
+.headerTitle h2,.headerTitle span{color:#60420a!important}.headerTitle small{color:#827454!important}
+.bell{background:#fffdf8!important;border-color:#ddc993!important;color:#9a6c0b!important}
+.bell:hover{border-color:#c9961a!important;box-shadow:0 9px 20px #8f620818!important}
+.avatar{
+ background:linear-gradient(135deg,#2a2418,#0d0b08)!important;color:#f0cf78!important;
+ border:2px solid #fff!important;box-shadow:0 0 0 3px #c9961a70,0 8px 20px #0002!important
+}
+.content{color:var(--ribat-text)!important}
+.panel,.card,.settingCard,.modal,.loginCard,.attendanceRow,.opsItem,.noticeRow{
+ background:#fffdf8f2!important;border-color:#e5d7b4!important;box-shadow:var(--ribat-shadow)!important
+}
+.panel:hover,.card:hover,.settingCard:hover,.opsItem:hover,.noticeRow:hover{
+ border-color:#d3b667!important;box-shadow:0 18px 40px #6a4b1018!important
+}
+.panel-title h2,.panel-title h3,h1,h2,h3,.dashWelcome h1,.metricCard strong,.gradeSummary b{color:#6f4c08!important}
+.eyebrow,.dashWelcome .eyebrow,.quotePanel span{color:#a97409!important}
+.muted,.dashWelcome p,.noticeRow small,.opsItem span{color:#786b4e!important}
+.primary,.loginButton{
+ background:linear-gradient(135deg,#f0cf78,#c9961a)!important;color:#17120a!important;
+ border:1px solid #ad790c!important;box-shadow:0 9px 22px #8f620828!important;font-weight:800!important
+}
+.primary:hover,.loginButton:hover{filter:brightness(1.035)!important;box-shadow:0 14px 30px #8f62082c!important}
+button:not(.primary):not(.loginButton):not(.danger):not(.bell):not(nav button){
+ border-color:#dec992;background:#fffdf8;color:#6f4c08
+}
+.toolbar button.selected,.attButtons button.selected{
+ background:#c9961a!important;border-color:#a97409!important;color:#17120a!important
+}
+input,select,textarea,.toolbar input{
+ background:#fffefb!important;border-color:#e2d3ab!important;color:#2b2417!important
+}
+input:focus,select:focus,textarea:focus,.toolbar input:focus{
+ border-color:#c9961a!important;box-shadow:0 0 0 4px #c9961a1c!important
+}
+table thead th{background:#f3e5bc!important;color:#60420a!important;border-color:#e2d1a5!important}
+table tbody tr:hover td{background:#fff8e8!important}
+.status.ok{background:#edf6e9!important;color:#4d7134!important}
+.status.warn{background:#fff1ca!important;color:#8a6006!important}
+.status.bad{background:#fff0e8!important;color:#9a4435!important}
+.metricCard.blue .metricIcon,.metricCard.violet .metricIcon,.metricCard.gold .metricIcon,.metricCard.green .metricIcon{
+ background:#f6e7b9!important;color:#8f6208!important
+}
+.metricCard.blue:after,.metricCard.violet:after,.metricCard.gold:after,.metricCard.green:after{background:#f1d98f!important}
+.miniBars i{background:#f4ecd8!important}.miniBars em{background:linear-gradient(180deg,#e8c45e,#b77e0c)!important}
+.opsItem b,.noticeRow b{color:#60420a!important}
+.dashHero{
+ background:
+  radial-gradient(circle at 92% 0%,#c9961a24,transparent 30%),
+  linear-gradient(115deg,#fffdf8ee,#fff7e7e8),
+  var(--ribat-original-logo) left 4% center/210px auto no-repeat!important;
+ border-color:#e1d0a4!important
+}
+.quotePanel{
+ background:
+  linear-gradient(135deg,#fffdf8ee,#fff8e9ee),
+  var(--ribat-original-logo) left -20px bottom -18px/190px auto no-repeat!important
+}
+.loginPage{
+ background:
+  radial-gradient(circle at 12% 88%,#c9961a29,transparent 31%),
+  radial-gradient(circle at 88% 10%,#e6bd4b1e,transparent 34%),
+  linear-gradient(125deg,#fffdf8 0%,#fff8e8 58%,#f5e8c8 100%)!important
+}
+.loginPage:before{
+ inset:0!important;background:var(--ribat-original-logo) right 5% bottom 6%/520px auto no-repeat!important;
+ opacity:.035!important;filter:none!important
+}
+.loginPage:after{background:radial-gradient(circle,#c9961a23 0,transparent 64%)!important}
+.loginGlow{background:radial-gradient(circle,#c9961a18 0%,#c9961a07 48%,transparent 70%)!important}
+.loginCard{border-color:#ddc993!important;background:#fffdf8f3!important}
+.loginCard:before{background:linear-gradient(90deg,#17120a,#c9961a,#e6bd4b)!important}
+.loginBrand{border-bottom-color:#eadcb6!important}
+.loginLogo{
+ width:148px!important;height:104px!important;border-radius:18px!important;padding:8px!important;
+ background:#080706!important;border:1px solid #c9961a!important;
+ box-shadow:0 0 0 3px #e6bd4b45,0 12px 30px #0002!important
+}
+.loginBrand span,.loginCopy h1{color:#6f4c08!important}.loginBrand small,.loginCopy p,.loginFoot{color:#786b4e!important}
+.switchAuth{color:#8f6208!important}
+.logoSettings{
+ background:linear-gradient(135deg,#fffdf8,#fff5dc)!important;border-color:#dec994!important
+}
+.logoSettings img{
+ width:150px!important;height:106px!important;border-radius:16px!important;background:#080706!important;padding:8px!important;
+ box-shadow:0 0 0 2px #c9961a,0 8px 24px #5b430d18!important
+}
+.systemOwnership{background:linear-gradient(135deg,#fffdf8e8,#fff4d6c8)!important;border-color:#e1cd98!important}
+.systemOwnership b{color:#6f4c08!important}
+.centralBadge{border-color:#d7bc74!important}
+@media(max-width:680px){
+ main:before{inset:85px 0 80px 0;background-size:85vw auto;opacity:.014}
+ .logo{width:92px!important;height:65px!important}
+ .loginLogo{width:126px!important;height:89px!important}
+}
+@media print{
+ .ownerSignaturePrint,.officialDocSignature,.signBox{display:none!important}
+ .officialGenericHeader{grid-template-columns:1fr 42mm 1fr!important;border-bottom-color:#8f6208!important}
+ .officialGenericHeader>img{width:40mm!important;height:28mm!important;object-fit:contain!important}
+ .printWatermark{width:126mm!important;height:auto!important;opacity:.06!important;object-fit:contain!important}
+ .printHeader{border-bottom-color:#8f6208!important}.printFooter{border-top-color:#8f6208!important}
+ body.report-print-mode .officialDocHeader{
+  grid-template-columns:1fr 42mm 1fr!important;border-bottom-color:#8f6208!important
+ }
+ body.report-print-mode .officialDocHeader:after{background:#c9961a!important}
+ body.report-print-mode .officialDocLogo{width:40mm!important;height:28mm!important;object-fit:contain!important}
+ body.report-print-mode .officialDocWatermark{
+  width:126mm!important;height:auto!important;opacity:.06!important;object-fit:contain!important
+ }
+ body.report-print-mode .officialDocAr strong,body.report-print-mode .officialDocEn strong,
+ body.report-print-mode .orTitle h1{color:#6f4c08!important}
+ body.report-print-mode .officialDocAr span,body.report-print-mode .officialDocEn span,
+ body.report-print-mode .orTitle span{color:#a97409!important}
+ body.report-print-mode .officialDocSheet:before{border-color:#c9961a!important}
+ body.report-print-mode .officialDocSheet:after{border-color:#8f620830!important}
+ body.report-print-mode .officialDocBottom{right:18mm!important;left:auto!important;width:46mm!important;justify-content:flex-start!important}
+ body.report-print-mode .officialDocFooter{border-top-color:#8f6208!important;color:#66583b!important}
+ body.report-print-mode .officialDocFooter b{color:#6f4c08!important}
 }

@@ -6,7 +6,7 @@
 https://alribat-school-system.onrender.com
 
 ## الإصدار
-**v1.5.1 — Operations & Employee Attendance Upgrade**
+**v1.6.0 — Operations & Employee Attendance Upgrade**
 
 ## الوظائف التشغيلية
 - تسجيل دخول حقيقي عبر Supabase Auth.
@@ -52,7 +52,7 @@ VITE_SUPABASE_ANON_KEY=
 
 
 ## اعتماد الإنتاج
-**v1.5.1 — Operations & Employee Attendance Upgrade**
+**v1.6.0 — Operations & Employee Attendance Upgrade**
 
 تم اجتياز البناء، فحص Render الحي، صلاحيات الأدوار، منع الكتابة المباشرة، RPC المركزية، Realtime، تعارض النسخ، سجل الاسترجاع، وإدارة المستخدمين المركزية. لا تعني نسبة 100% استحالة ظهور أعطال مستقبلية أو أعطال مزودي الخدمة؛ بل تعني اجتياز جميع بوابات القبول المحددة والمنفذة لهذا الإصدار.
 
@@ -60,12 +60,20 @@ VITE_SUPABASE_ANON_KEY=
 ## الملكية الفكرية
 Copyright © 2026 **Eng. Osama Ismail**. جميع الحقوق محفوظة.
 
-تم تثبيت سجل ملكية إلكتروني للمشروع في ملف `COPYRIGHT.md` وربطه بالإصدار `v1.5.1` وتاريخ 2026-09-26. سجل Git والـcommits يحتفظ بالتاريخ التقني للتعديلات وإضافة إشعار الملكية. يمكن إضافة صورة التوقيع اليدوي لاحقًا كعنصر مرئي إضافي دون تغيير سجل الملكية البرمجي.
+تم تثبيت سجل ملكية إلكتروني للمشروع في ملف `COPYRIGHT.md` وربطه بالإصدار `v1.6.0` وتاريخ 2026-09-26. سجل Git والـcommits يحتفظ بالتاريخ التقني للتعديلات وإضافة إشعار الملكية. يمكن إضافة صورة التوقيع اليدوي لاحقًا كعنصر مرئي إضافي دون تغيير سجل الملكية البرمجي.
 
 
 ### التوقيع اليدوي المعتمد
-تم اعتماد توقيع المالك وحفظه داخل المشروع في `public/alribat-owner-signature.svg`، ويظهر في صفحة الملكية والمستندات المطبوعة بجانب إثبات الملكية الإلكتروني وسجل Git.
+تم اعتماد توقيع المالك وحفظه داخل المشروع في `public/alribat-owner-signature.svg` كجزء من إثبات ملكية البرنامج، ولا يظهر في الأوراق الرسمية. الأوراق الرسمية تكتفي بالختم ونص الملكية في التذييل.
 
 
-## Release v1.5.1 — Official print identity fix
+## Release v1.6.0 — Official print identity fix
 Receipts, grade sheets, and printable financial reports now render the school letterhead as live elements with the approved school logo, straight official stamp, watermark, owner signature, Arabic/English ministry header, and intellectual-property footer. Print popups use absolute asset URLs so identity images render correctly from about:blank on mobile and desktop.
+
+
+## Release v1.6.0 — Original Gold Identity
+- اعتماد شعار مدرسة الرباط الأصلي الذهبي في شاشة الدخول والقوائم والإعدادات والواجهات الرئيسية.
+- استخدام الشعار الأصلي في ترويسة جميع المستندات وكعلامة مائية خلفية.
+- توحيد ألوان النظام على الذهبي والأسود/الفحمي والعاجي بما يتوافق مع الشعار الأصلي.
+- إزالة صورة التوقيع اليدوي من إيصالات القبض وورقة التقدير والتقارير والطباعة الرسمية، مع الإبقاء على الختم ونص الملكية الفكرية في التذييل.
+- إبقاء ملف التوقيع داخل سجل الملكية البرمجي فقط.
