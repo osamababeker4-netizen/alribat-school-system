@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 const url=import.meta.env.VITE_SUPABASE_URL;
 const anon=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY||import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const centralEnabled=Boolean(url&&anon);
+export const centralConfigError=centralEnabled?"":"إعدادات الاتصال المركزي غير مكتملة. أوقف التشغيل حتى يتم ضبط Supabase بشكل صحيح.";
 export const supabase=centralEnabled?createClient(url,anon,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}):null;
 
 let profileCache=null;
@@ -27,9 +28,16 @@ export async function getSession(){
   return data.session;
 }
 export async function signIn(identifier,password){
-  const res=await fetch(url+"/functions/v1/login-identifier",{method:"POST",headers:{"content-type":"application/json","apikey":anon},body:JSON.stringify({identifier,password})});
-  const body=await res.json();
-  if(!res.ok)throw new Error(body?.error||"بيانات الدخول غير صحيحة");
+  let res;
+  try{
+    res=await fetch(url+"/functions/v1/login-identifier",{method:"POST",headers:{"content-type":"application/json","apikey":anon},body:JSON.stringify({identifier,password})});
+  }catch{
+    throw new Error("تعذر الوصول إلى خدمة تسجيل الدخول. تحقق من الاتصال ثم حاول مجددًا.");
+  }
+  let body={};
+  try{body=await res.json()}catch{}
+  if(!res.ok)throw new Error(body?.error||"تعذر تسجيل الدخول حاليًا");
+  if(!body?.access_token||!body?.refresh_token)throw new Error("استجابة تسجيل الدخول غير مكتملة");
   const {error}=await supabase.auth.setSession({access_token:body.access_token,refresh_token:body.refresh_token});
   if(error)throw error;
   return (await supabase.auth.getSession()).data.session;
@@ -54,6 +62,9 @@ export async function inviteSchoolUser(email,phone,full_name,role){
   return data;
 }
 export async function signOut(){
+  clearTimeout(saveTimer);
+  saveTimer=null;
+  pendingState=null;
   if(!centralEnabled)return;
   const {error}=await supabase.auth.signOut();
   if(error)throw error;
@@ -123,7 +134,8 @@ export function queueCentralSave(state){
   if(!centralEnabled||!profileCache)return;
   pendingState=JSON.parse(JSON.stringify(state));
   clearTimeout(saveTimer);
-  saveTimer=setTimeout(flushSave,500);
+  window.dispatchEvent(new CustomEvent("alribat-sync-pending"));
+  saveTimer=setTimeout(flushSave,250);
 }
 export function currentProfile(){return profileCache;}
 

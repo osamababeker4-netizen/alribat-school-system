@@ -6,7 +6,7 @@
 https://alribat-school-system.onrender.com
 
 ## الإصدار
-**v1.3.0 — Central Production Hardened**
+**v1.3.1 — Central Production Hardened**
 
 ## الوظائف التشغيلية
 - تسجيل دخول حقيقي عبر Supabase Auth.
@@ -46,3 +46,5 @@ VITE_SUPABASE_ANON_KEY=
 - استخدم `VITE_SUPABASE_PUBLISHABLE_KEY` للواجهة عند توفره، ولا تستخدم `service_role` في المتصفح.
 - الكتابة الحساسة لا تتم مباشرة على الجداول؛ تمر عبر RPC محمي بالصلاحيات.
 - يوصى بتفعيل **Leaked Password Protection** من إعدادات Supabase Auth إذا كانت الخطة تدعمها.
+- في بيئة الإنتاج يفشل النظام بشكل آمن إذا كانت إعدادات Supabase غير مكتملة، ولا ينتقل إلى تخزين محلي صامت.
+- حالة المزامنة تظهر منذ لحظة انتظار الحفظ، مع معالجة أوضح لأخطاء تسجيل الدخول واستعادة الجلسة.
