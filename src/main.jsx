@@ -4,7 +4,7 @@ import{audit,backup,balance,clear,csv,fstatus,id,load,money,paid,restore,save,to
 import"./styles.css";
 import{LETTERHEAD_IMAGE}from"./letterhead.js";
 
-const MODS=[["الرئيسية","⌂"],["الطلاب","🎓"],["الرسوم والتحصيل","💳"],["المصروفات","🧾"],["الموظفون","👥"],["الحضور","✓"],["المخزون","▣"],["الطلبات والموافقات","↔"],["ورقة التقدير","📝"],["التقارير","▤"],["المستخدمون والصلاحيات","👤"],["الإعدادات","⚙"]];
+const MODS=[["الرئيسية","⌂"],["الطلاب","🎓"],["الرسوم والتحصيل","💳"],["المصروفات","🧾"],["الموظفون","👥"],["حضور الموظفين","⏱"],["الحضور","✓"],["المخزون","▣"],["الطلبات والموافقات","↔"],["ورقة التقدير","📝"],["التقارير","▤"],["المستخدمون والصلاحيات","👤"],["الإعدادات","⚙"]];
 const PERMS={"مدير النظام":MODS.map(x=>x[0]),"مدير المدرسة":MODS.map(x=>x[0]),"محاسب":["الرئيسية","الطلاب","الرسوم والتحصيل","المصروفات","التقارير"],"أمين المستودع":["الرئيسية","المخزون","الطلبات والموافقات","التقارير"],"مشرف/معلم":["الرئيسية","الطلاب","الحضور","ورقة التقدير","الطلبات والموافقات"]};
 const ROLES=Object.keys(PERMS),today=()=>new Date().toISOString().slice(0,10),num=x=>Number(x||0);
 function S({children,tone="neutral"}){return <span className={"status "+tone}>{children}</span>}
@@ -40,12 +40,13 @@ function App(){
  const mutate=(fn,a,m,d)=>setDb(p=>{const n=fn(p);return{...n,audit:[audit(a,m,d,user.name),...(n.audit||[])].slice(0,1000)}});
  const notify=(title,message)=>setDb(p=>({...p,notifications:[{id:id("n"),title,message,at:new Date().toISOString(),read:false},...p.notifications].slice(0,100)}));
  const nav=MODS.filter(x=>allowed.includes(x[0]));
- return <div className="app"><aside className="sidebar"><div className="brand"><div className="logo"><img src={db.school.logoUrl||"./alribat-seal.svg"} alt="شعار مدرسة الرباط"/></div><div><b>مدرسة الرباط</b><span>الإدارة والمالية</span></div></div><nav>{nav.map(x=><button key={x[0]} className={active===x[0]?"active":""} onClick={()=>{setActive(x[0]);setSearch("")}}><i>{x[1]}</i><span>{x[0]}</span></button>)}</nav><div className="sideFoot ownershipMini"><span>الإصدار</span><b>Central v1.4.0</b><img className="miniSignature" src="./alribat-owner-signature.svg" alt="توقيع المالك"/><small>© 2026 Eng. Osama Ismail<br/>جميع الحقوق والملكية الفكرية محفوظة</small></div></aside><main><header><div className="headerTitle"><span className="mobileTitle">مدرسة الرباط</span><h2>{active}</h2><small>النظام المالي والإداري المركزي</small></div><div className="headerActions"><button className="bell" onClick={()=>setModal({type:"notes"})}>🔔{db.notifications.some(x=>!x.read)&&<em>{db.notifications.filter(x=>!x.read).length}</em>}</button><div className="user"><div className="avatar">{(user.name||"م")[0]}</div><div><b>{user.name}</b><span>{user.role}</span></div></div></div></header><div className="content">
+ return <div className="app"><aside className="sidebar"><div className="brand"><div className="logo"><img src={db.school.logoUrl||"./alribat-seal.svg"} alt="شعار مدرسة الرباط"/></div><div><b>مدرسة الرباط</b><span>الإدارة والمالية</span></div></div><nav>{nav.map(x=><button key={x[0]} className={active===x[0]?"active":""} onClick={()=>{setActive(x[0]);setSearch("")}}><i>{x[1]}</i><span>{x[0]}</span></button>)}</nav><div className="sideFoot ownershipMini"><span>الإصدار</span><b>Central v1.5.0</b><img className="miniSignature" src="./alribat-owner-signature.svg" alt="توقيع المالك"/><small>© 2026 Eng. Osama Ismail<br/>جميع الحقوق والملكية الفكرية محفوظة</small></div></aside><main><header><div className="headerTitle"><span className="mobileTitle">مدرسة الرباط</span><h2>{active}</h2><small>النظام المالي والإداري المركزي</small></div><div className="headerActions"><button className="bell" onClick={()=>setModal({type:"notes"})}>🔔{db.notifications.some(x=>!x.read)&&<em>{db.notifications.filter(x=>!x.read).length}</em>}</button><div className="user"><div className="avatar">{(user.name||"م")[0]}</div><div><b>{user.name}</b><span>{user.role}</span></div></div></div></header><div className="content">
  {active==="الرئيسية"&&<Dashboard db={db} go={setActive} user={user}/>}
  {active==="الطلاب"&&<Students db={db} search={search} setSearch={setSearch} mutate={mutate} setModal={setModal}/>}
  {active==="الرسوم والتحصيل"&&<Finance db={db} search={search} setSearch={setSearch} mutate={mutate} setModal={setModal} notify={notify}/>}
  {active==="المصروفات"&&<Expenses db={db} search={search} setSearch={setSearch} mutate={mutate} setModal={setModal}/>}
  {active==="الموظفون"&&<Staff db={db} search={search} setSearch={setSearch} mutate={mutate} setModal={setModal}/>}
+ {active==="حضور الموظفين"&&<StaffAttendance db={db} mutate={mutate}/>}
  {active==="الحضور"&&<Attendance db={db} mutate={mutate}/>}
  {active==="المخزون"&&<Inventory db={db} search={search} setSearch={setSearch} mutate={mutate} setModal={setModal} notify={notify}/>}
  {active==="الطلبات والموافقات"&&<Requests db={db} mutate={mutate} setModal={setModal} user={user}/>}
@@ -60,7 +61,7 @@ function App(){
 
 function Dashboard({db,go,user}){
  const fees=total(db.fees),cash=total(db.payments),exp=total(db.expenses),low=db.inventory.filter(x=>num(x.quantity)<=num(x.reorderLevel)),pending=db.requests.filter(x=>x.status==="قيد المراجعة");
- const recent=[...db.notifications].slice(0,4);
+ const recent=[...db.notifications].slice(0,4),staffToday=(db.staffAttendance||[]).filter(x=>x.date===today()),staffPresent=staffToday.filter(x=>x.status==="حاضر").length;
  return <>
   <section className="dashHero">
    <div className="dashWelcome"><span className="eyebrow">مرحبًا بك في نظام مدرسة الرباط</span><h1>مرحباً {user.name}</h1><p>إدارة مالية وإدارية موحدة، متابعة فورية، وصلاحيات حسب الدور.</p></div>
@@ -80,6 +81,7 @@ function Dashboard({db,go,user}){
       <div className="opsItem"><span>المصروفات</span><b>{money(exp)}</b><small>{db.school.currency}</small></div>
       <div className="opsItem"><span>طلبات معلقة</span><b>{pending.length}</b><small>طلب</small></div>
       <div className="opsItem"><span>مخزون منخفض</span><b>{low.length}</b><small>صنف</small></div>
+      <div className="opsItem"><span>حضور الموظفين اليوم</span><b>{staffPresent}</b><small>موظف</small></div>
     </div>
     <div className="miniBars">
       {[["الأساسي الأول",72],["الأساسي الثاني",84],["الأساسي الثالث",77],["الأساسي الرابع",64],["الأساسي الخامس",58]].map(([n,v])=><div key={n}><span>{n}</span><i><em style={{height:v+"%"}}></em></i><b>{v}</b></div>)}
@@ -91,7 +93,7 @@ function Dashboard({db,go,user}){
    </section>
    <section className="panel dashPanel">
     <div className="panel-title"><h3>اختصارات سريعة</h3></div>
-    <div className="quick modernQuick"><button onClick={()=>go("الطلاب")}>👥 الطلاب</button><button onClick={()=>go("الرسوم والتحصيل")}>🪙 الرسوم</button><button onClick={()=>go("الحضور")}>📅 الحضور</button><button onClick={()=>go("التقارير")}>📊 التقارير</button></div>
+    <div className="quick modernQuick"><button onClick={()=>go("الطلاب")}>👥 الطلاب</button><button onClick={()=>go("الرسوم والتحصيل")}>🪙 الرسوم</button><button onClick={()=>go("الحضور")}>📅 حضور الطلاب</button><button onClick={()=>go("حضور الموظفين")}>⏱ حضور الموظفين</button><button onClick={()=>go("التقارير")}>📊 التقارير</button></div>
    </section>
    <section className="panel quotePanel"><span>“ التربية والتوجيه ”</span><b>وحدة تسهم في بناء إنسان متميز</b><small>مدرسة الرباط الأساسية المختلطة الخاصة</small></section>
   </div>
@@ -106,6 +108,25 @@ function Expenses({db,search,setSearch,mutate,setModal}){const rows=db.expenses.
 
 function Staff({db,search,setSearch,setModal}){const rows=db.staff.filter(x=>(x.name+" "+x.role+" "+(x.phone||"")).toLowerCase().includes(search.toLowerCase()));return <section className="panel pagePanel"><Head title="الموظفون" desc="البيانات الوظيفية والرواتب والحالة." add="موظف" onAdd={()=>setModal({type:"staff"})} search={search} setSearch={setSearch}/>{rows.length?<div className="tableWrap"><table><thead><tr><th>الاسم</th><th>الوظيفة</th><th>الهاتف</th><th>الراتب</th><th>الحالة</th></tr></thead><tbody>{rows.map(x=><tr key={x.id}><td><b>{x.name}</b></td><td>{x.role}</td><td>{x.phone||"—"}</td><td>{money(x.salary)}</td><td><S tone="ok">{x.status}</S></td></tr>)}</tbody></table></div>:<Empty/>}</section>}
 
+
+function StaffAttendance({db,mutate}){
+ const[date,setDate]=useState(today());
+ const staff=db.staff.filter(x=>x.status!=="منتهي"),all=db.staffAttendance||[],rows=all.filter(x=>x.date===date);
+ const rec=s=>rows.find(x=>x.staffId===s.id),now=()=>new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",hour12:false});
+ const upsert=(s,patch,desc)=>mutate(p=>{const list=p.staffAttendance||[],old=list.find(x=>x.staffId===s.id&&x.date===date),base=old||{id:id("satt"),staffId:s.id,staffName:s.name,role:s.role,date,status:"حاضر",checkIn:"",checkOut:"",notes:""};const next={...base,...patch,staffName:s.name,role:s.role,updatedAt:new Date().toISOString()};return{...p,staffAttendance:old?list.map(x=>x.id===old.id?next:x):[...list,next]}},"تعديل","حضور الموظفين",desc);
+ const checkIn=s=>upsert(s,{status:"حاضر",checkIn:now()},"حضور "+s.name);
+ const checkOut=s=>{const r=rec(s);if(!r?.checkIn){alert("يجب تسجيل الحضور أولاً");return}upsert(s,{checkOut:now()},"انصراف "+s.name)};
+ const setStatus=(s,status)=>upsert(s,{status,checkIn:status==="حاضر"?(rec(s)?.checkIn||now()):"",checkOut:status==="حاضر"?(rec(s)?.checkOut||""):""},"حالة "+s.name+" — "+status);
+ const duration=r=>{if(!r?.checkIn||!r?.checkOut)return"—";const[a,b]=[r.checkIn,r.checkOut].map(t=>{const[h,m]=t.split(":").map(Number);return h*60+m});const d=Math.max(0,b-a);return Math.floor(d/60)+"س "+String(d%60).padStart(2,"0")+"د"};
+ const present=rows.filter(x=>x.status==="حاضر").length,absent=rows.filter(x=>x.status==="غائب").length,open=rows.filter(x=>x.checkIn&&!x.checkOut).length;
+ return <section className="panel pagePanel staffAttendancePage">
+  <Head title="حضور وانصراف الموظفين" desc="سجل يومي مركزي للحضور والانصراف والحالة وساعات العمل."/>
+  <div className="cards staffAttMetrics"><Metric t="الموظفون" v={staff.length} s="موظف نشط" icon="👥" tone="blue"/><Metric t="حاضر اليوم" v={present} s="تم تسجيل الحضور" icon="✓" tone="green"/><Metric t="غائب" v={absent} s="حسب سجل اليوم" icon="×" tone="gold"/><Metric t="بانتظار الانصراف" v={open} s="حضور بلا انصراف" icon="⏱" tone="violet"/></div>
+  <div className="toolbar staffAttToolbar"><input type="date" value={date} onChange={e=>setDate(e.target.value)}/><button onClick={()=>csv("staff-attendance-"+date+".csv",rows)}>تصدير سجل اليوم</button></div>
+  {staff.length?<div className="tableWrap"><table className="staffAttTable"><thead><tr><th>الموظف</th><th>الوظيفة</th><th>الحالة</th><th>الحضور</th><th>الانصراف</th><th>المدة</th><th>الإجراء</th></tr></thead><tbody>{staff.map(s=>{const r=rec(s);return <tr key={s.id}><td><b>{s.name}</b></td><td>{s.role}</td><td><select value={r?.status||""} onChange={e=>e.target.value&&setStatus(s,e.target.value)}><option value="">غير مسجل</option>{["حاضر","غائب","إجازة","مأذون"].map(x=><option key={x}>{x}</option>)}</select></td><td><b className="timeCell">{r?.checkIn||"—"}</b></td><td><b className="timeCell">{r?.checkOut||"—"}</b></td><td>{duration(r)}</td><td className="actions"><button className="checkInBtn" disabled={Boolean(r?.checkIn)} onClick={()=>checkIn(s)}>حضور الآن</button><button className="checkOutBtn" disabled={!r?.checkIn||Boolean(r?.checkOut)} onClick={()=>checkOut(s)}>انصراف الآن</button></td></tr>})}</tbody></table></div>:<Empty text="أضف الموظفين أولاً"/>}
+ </section>
+}
+
 function Attendance({db,mutate}){const[date,setDate]=useState(today());const rows=db.attendance.filter(x=>x.date===date);const status=s=>rows.find(x=>x.studentId===s.id)?.status;const mark=(s,st)=>mutate(p=>{const old=p.attendance.find(x=>x.studentId===s.id&&x.date===date);return{...p,attendance:old?p.attendance.map(x=>x.id===old.id?{...x,status:st}:x):[...p.attendance,{id:id("att"),studentId:s.id,studentName:s.name,date,status:st}]}},"تعديل","الحضور",s.name+" - "+st);return <section className="panel pagePanel"><Head title="الحضور" desc="تسجيل يومي للحضور والغياب والتأخير والأذونات."/><div className="toolbar"><input type="date" value={date} onChange={e=>setDate(e.target.value)}/><button onClick={()=>csv("attendance-"+date+".csv",rows)}>تصدير اليوم</button></div>{db.students.filter(x=>x.status==="نشط").length?<div className="attendanceGrid">{db.students.filter(x=>x.status==="نشط").map(s=><div className="attendanceRow" key={s.id}><div><b>{s.name}</b><small>{s.grade}</small></div><div className="attButtons">{["حاضر","غائب","متأخر","مأذون"].map(st=><button key={st} className={status(s)===st?"selected":""} onClick={()=>mark(s,st)}>{st}</button>)}</div></div>)}</div>:<Empty text="أضف الطلاب أولاً"/>}</section>}
 
 function Inventory({db,search,setSearch,setModal}){const rows=db.inventory.filter(x=>(x.name+" "+(x.sku||"")+" "+(x.category||"")).toLowerCase().includes(search.toLowerCase()));return <section className="panel pagePanel"><Head title="المخزون" desc="الأصناف والأرصدة ومنع الصرف بالسالب وحد إعادة الطلب." add="صنف" onAdd={()=>setModal({type:"item"})} search={search} setSearch={setSearch} extra={<button onClick={()=>setModal({type:"move"})}>+ حركة مخزون</button>}/>{rows.length?<div className="tableWrap"><table><thead><tr><th>الصنف</th><th>الرمز</th><th>التصنيف</th><th>الرصيد</th><th>حد الطلب</th><th>الحالة</th></tr></thead><tbody>{rows.map(x=><tr key={x.id}><td><b>{x.name}</b></td><td>{x.sku||"—"}</td><td>{x.category||"—"}</td><td>{x.quantity+" "+(x.unit||"")}</td><td>{x.reorderLevel}</td><td><S tone={num(x.quantity)<=num(x.reorderLevel)?"warn":"ok"}>{num(x.quantity)<=num(x.reorderLevel)?"إعادة طلب":"متوفر"}</S></td></tr>)}</tbody></table></div>:<Empty/>}</section>}
@@ -119,7 +140,7 @@ function Reports({db}){
   <section className="panel pagePanel screenReport">
    <Head title="التقارير" desc="ملخص مالي وتقارير قابلة للطباعة والتصدير."/>
    <div className="cards reportCards"><Metric t="الرسوم" v={money(fees)} s={db.school.currency}/><Metric t="المتحصل" v={money(cash)} s={db.school.currency}/><Metric t="المصروفات" v={money(exp)} s={db.school.currency}/><Metric t="صافي التدفق" v={money(cash-exp)} s={db.school.currency}/></div>
-   <div className="reportActions"><button onClick={printReport}>طباعة</button><button onClick={()=>csv("fees-report.csv",db.fees.map(x=>({...x,paid:paid(db,x.id),balance:balance(db,x),status:fstatus(db,x)})))}>تصدير الرسوم</button><button onClick={()=>csv("payments-report.csv",db.payments)}>تصدير الإيصالات</button><button onClick={()=>csv("inventory-report.csv",db.inventory)}>تصدير المخزون</button></div>
+   <div className="reportActions"><button onClick={printReport}>طباعة</button><button onClick={()=>csv("fees-report.csv",db.fees.map(x=>({...x,paid:paid(db,x.id),balance:balance(db,x),status:fstatus(db,x)})))}>تصدير الرسوم</button><button onClick={()=>csv("payments-report.csv",db.payments)}>تصدير الإيصالات</button><button onClick={()=>csv("inventory-report.csv",db.inventory)}>تصدير المخزون</button><button onClick={()=>csv("staff-attendance-report.csv",db.staffAttendance||[])}>تصدير حضور الموظفين</button></div>
    <h3>الرسوم ذات الرصيد</h3>{open.length?<div className="tableWrap"><table><thead><tr><th>الطالب</th><th>النوع</th><th>الإجمالي</th><th>المدفوع</th><th>الرصيد</th></tr></thead><tbody>{open.map(x=><tr key={x.id}><td>{x.studentName}</td><td>{x.type}</td><td>{money(x.amount)}</td><td>{money(paid(db,x.id))}</td><td><b>{money(balance(db,x))}</b></td></tr>)}</tbody></table></div>:<Empty text="لا توجد أرصدة مستحقة"/>}
   </section>
   <section className="reportPrintSheet officialLetterhead">
@@ -175,7 +196,7 @@ function Settings({db,mutate}){
   <h3>الملكية الفكرية</h3>
   <p><b>© 2026 Eng. Osama Ismail — جميع الحقوق محفوظة.</b></p>
   <p className="muted">هذا النظام وتصميمه وبرمجته وتكامل قاعدة البيانات وسجل إصداراته موثق باسم المالك داخل المستودع.</p>
-  <img className="ownerSignature" src="./alribat-owner-signature.svg" alt="التوقيع المعتمد للمالك"/><small>التوقيع اليدوي المعتمد + التوقيع الإلكتروني: Eng. Osama Ismail • الإصدار v1.4.0 • 2026-09-26</small>
+  <img className="ownerSignature" src="./alribat-owner-signature.svg" alt="التوقيع المعتمد للمالك"/><small>التوقيع اليدوي المعتمد + التوقيع الإلكتروني: Eng. Osama Ismail • الإصدار v1.5.0 • 2026-09-26</small>
   <div className="buttonRow"><button onClick={()=>window.open("https://github.com/osamababeker4-netizen/alribat-school-system/blob/main/COPYRIGHT.md","_blank")}>عرض إثبات الملكية</button></div>
 </div>
 </div></section>
