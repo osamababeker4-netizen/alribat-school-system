@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
 const url=import.meta.env.VITE_SUPABASE_URL;
-const anon=import.meta.env.VITE_SUPABASE_ANON_KEY;
+const anon=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY||import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const centralEnabled=Boolean(url&&anon);
 export const supabase=centralEnabled?createClient(url,anon,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}):null;
 
@@ -145,5 +145,16 @@ export async function updateMyPhone(phone){
   const {data,error}=await supabase.rpc("update_my_phone",{p_phone:normalized});
   if(error)throw error;
   if(profileCache)profileCache.phone=normalized;
+  return data;
+}
+
+
+export async function setSchoolUserActive(userId,active){
+  if(!centralEnabled)throw new Error("الاتصال المركزي غير مفعّل");
+  const {data,error}=await supabase.rpc("set_school_user_active",{
+    p_user_id:userId,
+    p_active:Boolean(active)
+  });
+  if(error)throw error;
   return data;
 }
