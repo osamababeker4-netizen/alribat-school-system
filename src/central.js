@@ -13,8 +13,8 @@ let versionCache={};
 let lastSnapshot={};
 
 const WRITE={
-  "مدير النظام":["school","students","fees","payments","expenses","staff","attendance","inventory","moves","requests","grades","audit","notifications"],
-  "مدير المدرسة":["school","students","fees","payments","expenses","staff","attendance","inventory","moves","requests","grades","audit","notifications"],
+  "مدير النظام":["school","students","fees","payments","expenses","staff","staffAttendance","attendance","inventory","moves","requests","grades","audit","notifications"],
+  "مدير المدرسة":["school","students","fees","payments","expenses","staff","staffAttendance","attendance","inventory","moves","requests","grades","audit","notifications"],
   "محاسب":["students","fees","payments","expenses","audit","notifications"],
   "أمين المستودع":["inventory","moves","requests","audit","notifications"],
   "مشرف/معلم":["students","attendance","grades","requests","audit","notifications"]
