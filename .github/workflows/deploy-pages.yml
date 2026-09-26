@@ -15,6 +15,10 @@ jobs:
         with:
           node-version: 22
       - run: npm install --no-audit --no-fund
+      - uses: actions/upload-artifact@v4
+        with:
+          name: generated-package-lock
+          path: package-lock.json
       - run: npm run build
       - uses: actions/upload-artifact@v4
         with:
@@ -33,7 +37,7 @@ jobs:
           URL="https://alribat-school-system.onrender.com/"
           EXPECTED='<meta name="app-version" content="1.3.2" />'
           ok=0
-          for attempt in $(seq 1 18); do
+          for attempt in $(seq 1 60); do
             if curl --fail --location --silent --show-error --max-time 45 "$URL" -o /tmp/alribat-live.html; then
               if grep -Fq "$EXPECTED" /tmp/alribat-live.html && grep -Fq "مدرسة الرباط" /tmp/alribat-live.html; then
                 ok=1
