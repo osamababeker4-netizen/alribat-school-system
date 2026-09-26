@@ -417,3 +417,20 @@ header{backdrop-filter:blur(16px) saturate(1.18)!important}
 @media(prefers-reduced-motion:reduce){
  *,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+
+
+/* EMPLOYEE ATTENDANCE + v1.5.0 operational polish */
+.staffAttendancePage{overflow:visible}
+.staffAttMetrics{grid-template-columns:repeat(4,1fr)!important;margin:16px 0!important}
+.staffAttToolbar{display:flex;gap:10px;align-items:center;margin:8px 0 16px}
+.staffAttToolbar input{max-width:220px}
+.staffAttTable select{min-width:115px;padding:8px 10px;border-radius:10px}
+.staffAttTable .timeCell{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--ribat-navy);letter-spacing:.4px}
+.checkInBtn{border-color:#b9dfd0!important;background:#eefaf5!important;color:#087254!important;font-weight:800}
+.checkOutBtn{border-color:#d3ddec!important;background:#f4f7fb!important;color:#315777!important;font-weight:800}
+.checkInBtn:disabled,.checkOutBtn:disabled{opacity:.42;cursor:not-allowed;transform:none!important}
+.reportActions{display:flex;gap:9px;flex-wrap:wrap}
+.opsGrid{grid-template-columns:repeat(5,1fr)}
+.sideFoot b{letter-spacing:.2px}
+@media(max-width:1120px){.opsGrid{grid-template-columns:repeat(3,1fr)}.staffAttMetrics{grid-template-columns:1fr 1fr!important}}
+@media(max-width:680px){.opsGrid{grid-template-columns:1fr 1fr}.staffAttMetrics{grid-template-columns:1fr 1fr!important}.staffAttToolbar{align-items:stretch;display:grid}.staffAttToolbar input{max-width:none;width:100%}.staffAttTable .actions{min-width:190px}}
