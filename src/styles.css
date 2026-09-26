@@ -287,3 +287,10 @@ header{
 .settingsForm{display:grid;gap:18px}.logoSettings{display:flex;gap:18px;align-items:center;padding:18px;border-radius:18px;background:linear-gradient(135deg,#f8fbff,#fffaf0);border:1px solid #d9e4ef}.logoSettings img{width:110px;height:110px;object-fit:contain;border-radius:50%;background:#fff;padding:5px;box-shadow:0 0 0 3px #d9b14f,0 8px 24px #0b3a6915}.logoSettings>div{display:grid;gap:10px}.logoSettings b{color:#0b3a69;font-size:17px}.logoSettings input{max-width:320px}.logoSettings button{border:1px solid #d7e2ec;background:#fff;color:#0b4c87;padding:9px 12px;border-radius:10px}
 .settingsForm textarea{resize:vertical;min-height:150px}.settingsForm .formGrid{padding:18px;border:1px solid #e1e8ef;border-radius:18px;background:#fff}
 @media(max-width:900px){.gradeGrid{grid-template-columns:1fr 1fr}}@media(max-width:600px){.gradeGrid{grid-template-columns:1fr}.gradeToolbar{display:grid}.logoSettings{align-items:flex-start}.logoSettings img{width:82px;height:82px}.gradeSummary{grid-template-columns:1fr 1fr}}
+
+.ownerSignature{display:block;max-width:320px;width:100%;height:auto;margin:12px 0 8px;object-fit:contain}
+.ownerSignaturePrint{display:none}
+@media print{
+  .ownerSignaturePrint{display:flex;position:fixed;left:14mm;bottom:18mm;z-index:9;flex-direction:column;align-items:center;font-size:7pt;color:#555}
+  .ownerSignaturePrint img{width:38mm;height:auto;object-fit:contain}
+}
