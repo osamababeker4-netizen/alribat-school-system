@@ -40,7 +40,7 @@ function App(){
  const mutate=(fn,a,m,d)=>setDb(p=>{const n=fn(p);return{...n,audit:[audit(a,m,d,user.name),...(n.audit||[])].slice(0,1000)}});
  const notify=(title,message)=>setDb(p=>({...p,notifications:[{id:id("n"),title,message,at:new Date().toISOString(),read:false},...p.notifications].slice(0,100)}));
  const nav=MODS.filter(x=>allowed.includes(x[0]));
- return <div className="app"><aside className="sidebar"><div className="brand"><div className="logo"><img src={db.school.logoUrl||"./alribat-seal.svg"} alt="شعار مدرسة الرباط"/></div><div><b>مدرسة الرباط</b><span>الإدارة والمالية</span></div></div><nav>{nav.map(x=><button key={x[0]} className={active===x[0]?"active":""} onClick={()=>{setActive(x[0]);setSearch("")}}><i>{x[1]}</i><span>{x[0]}</span></button>)}</nav><div className="sideFoot"><span>الإصدار</span><b>Central v1.3.2</b><small>© 2026 Eng. Osama Ismail</small></div></aside><main><header><div className="headerTitle"><span className="mobileTitle">مدرسة الرباط</span><h2>{active}</h2><small>النظام المالي والإداري المركزي</small></div><div className="headerActions"><button className="bell" onClick={()=>setModal({type:"notes"})}>🔔{db.notifications.some(x=>!x.read)&&<em>{db.notifications.filter(x=>!x.read).length}</em>}</button><div className="user"><div className="avatar">{(user.name||"م")[0]}</div><div><b>{user.name}</b><span>{user.role}</span></div></div></div></header><div className="content">
+ return <div className="app"><aside className="sidebar"><div className="brand"><div className="logo"><img src={db.school.logoUrl||"./alribat-seal.svg"} alt="شعار مدرسة الرباط"/></div><div><b>مدرسة الرباط</b><span>الإدارة والمالية</span></div></div><nav>{nav.map(x=><button key={x[0]} className={active===x[0]?"active":""} onClick={()=>{setActive(x[0]);setSearch("")}}><i>{x[1]}</i><span>{x[0]}</span></button>)}</nav><div className="sideFoot ownershipMini"><span>الإصدار</span><b>Central v1.4.0</b><img className="miniSignature" src="./alribat-owner-signature.svg" alt="توقيع المالك"/><small>© 2026 Eng. Osama Ismail<br/>جميع الحقوق والملكية الفكرية محفوظة</small></div></aside><main><header><div className="headerTitle"><span className="mobileTitle">مدرسة الرباط</span><h2>{active}</h2><small>النظام المالي والإداري المركزي</small></div><div className="headerActions"><button className="bell" onClick={()=>setModal({type:"notes"})}>🔔{db.notifications.some(x=>!x.read)&&<em>{db.notifications.filter(x=>!x.read).length}</em>}</button><div className="user"><div className="avatar">{(user.name||"م")[0]}</div><div><b>{user.name}</b><span>{user.role}</span></div></div></div></header><div className="content">
  {active==="الرئيسية"&&<Dashboard db={db} go={setActive} user={user}/>}
  {active==="الطلاب"&&<Students db={db} search={search} setSearch={setSearch} mutate={mutate} setModal={setModal}/>}
  {active==="الرسوم والتحصيل"&&<Finance db={db} search={search} setSearch={setSearch} mutate={mutate} setModal={setModal} notify={notify}/>}
@@ -51,6 +51,7 @@ function App(){
  {active==="الطلبات والموافقات"&&<Requests db={db} mutate={mutate} setModal={setModal} user={user}/>}
  {active==="ورقة التقدير"&&<GradeSheet db={db} mutate={mutate}/>}\n {active==="التقارير"&&<Reports db={db}/>}
  {active==="المستخدمون والصلاحيات"&&<Users db={db} mutate={mutate} setModal={setModal} user={user} uidx={uidx} setUidx={setUidx} fileRef={fileRef} setDb={setDb}/>}\n {active==="الإعدادات"&&<Settings db={db} mutate={mutate}/>}
+ <div className="systemOwnership"><img src="./alribat-owner-signature.svg" alt="توقيع المالك"/><div><b>© 2026 Eng. Osama Ismail — جميع الحقوق محفوظة</b><span>الملكية الفكرية وتصميم وبرمجة نظام مدرسة الرباط موثقة داخل المستودع وسجل الإصدارات.</span></div></div>
  </div></main>
  <Dialogs modal={modal} setModal={setModal} db={db} mutate={mutate} notify={notify} user={user}/>
  <PrintBrand/>\n <input ref={fileRef} hidden type="file" accept="application/json" onChange={async e=>{try{setDb(await restore(e.target.files[0]));alert("تم استيراد النسخة الاحتياطية")}catch(x){alert(x.message)}e.target.value=""}}/>
@@ -174,7 +175,7 @@ function Settings({db,mutate}){
   <h3>الملكية الفكرية</h3>
   <p><b>© 2026 Eng. Osama Ismail — جميع الحقوق محفوظة.</b></p>
   <p className="muted">هذا النظام وتصميمه وبرمجته وتكامل قاعدة البيانات وسجل إصداراته موثق باسم المالك داخل المستودع.</p>
-  <img className="ownerSignature" src="./alribat-owner-signature.svg" alt="التوقيع المعتمد للمالك"/><small>التوقيع اليدوي المعتمد + التوقيع الإلكتروني: Eng. Osama Ismail • الإصدار v1.3.2 • 2026-09-26</small>
+  <img className="ownerSignature" src="./alribat-owner-signature.svg" alt="التوقيع المعتمد للمالك"/><small>التوقيع اليدوي المعتمد + التوقيع الإلكتروني: Eng. Osama Ismail • الإصدار v1.4.0 • 2026-09-26</small>
   <div className="buttonRow"><button onClick={()=>window.open("https://github.com/osamababeker4-netizen/alribat-school-system/blob/main/COPYRIGHT.md","_blank")}>عرض إثبات الملكية</button></div>
 </div>
 </div></section>
