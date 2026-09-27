@@ -38,6 +38,8 @@ has(main,'birthDate','birth date field missing');
 has(main,'studentPhone','student phone field missing');
 has(main,'notebookFields','raw notebook detail preservation missing');
 has(main,'mergeLedgerDetails','row detail merger missing');
+has(main,'rotateLedgerSource','ledger orientation alignment missing');
+has(main,'layout.rotation','HTR rotation metadata missing');
 has(main,'setRows(r=>r.filter(x=>!savedIds.has(x._id)','OCR review rows must remain open after partial save');
 has(main,'const openNotes=()=>','notification bell must mark/read via one controlled action');
 has(main,'className="backNav"','back navigation must be wired');
