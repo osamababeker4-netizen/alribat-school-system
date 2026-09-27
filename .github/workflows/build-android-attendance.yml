@@ -8,6 +8,10 @@ on:
       - "android-attendance/**"
       - ".github/workflows/build-android-attendance.yml"
 
+concurrency:
+  group: alribat-android-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
