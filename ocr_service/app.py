@@ -84,12 +84,11 @@ def _load_model():
             os.path.join(local, "models", "ctc_backbone", "model.pt")
         )
         model.eval()
-        try:
-            model = torch.quantization.quantize_dynamic(
-                model, {torch.nn.Linear}, dtype=torch.qint8
-            )
-        except Exception:
-            pass
+        # Dynamic quantization can replace internal Transformer modules with
+        # wrappers that are incompatible with this model on recent PyTorch
+        # releases (it crashes while reading ``tensor.device``).  Keep the
+        # original CPU model: correctness of handwritten ledger extraction is
+        # more important than the small memory saving here.
 
         def low_memory_recognise(line_image):
             with torch.inference_mode():
