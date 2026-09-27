@@ -211,7 +211,10 @@ def _prepare_page(image: Image.Image):
     row_ratio = layout_dark.mean(axis=1)
     col_ratio = layout_dark.mean(axis=0)
     grid_rows = row_ratio > 0.72
-    grid_cols = col_ratio > 0.72
+    # Continuous vertical ledger borders are much longer than handwriting.
+    # Remove them from the recogniser bitmap so blank rows cannot be mistaken
+    # for text because of a page/column border.
+    grid_cols = col_ratio > 0.34
 
     if grid_rows.any():
         for y in np.flatnonzero(grid_rows):
@@ -289,7 +292,12 @@ def _name_column_bounds(layout_dark: np.ndarray):
     if right - left < int(w * 0.19):
         left = int(w * 0.62)
 
-    return max(0, left + 3), min(w, right), rules
+    # Keep a small amount of context left of the detected separator because
+    # long Arabic names can cross the hand-drawn rule slightly. Stop before
+    # the extreme right page border so the recogniser sees text, not a tall line.
+    left = max(0, left - int(w * 0.025))
+    right = min(w, int(w * 0.968))
+    return left, right, rules
 
 
 def _horizontal_rules(layout_dark: np.ndarray, x0: int, x1: int):
@@ -423,7 +431,7 @@ def _ledger_rows(image: Image.Image):
             pad_y = max(3, int(height * 0.08))
             yy0, yy1 = max(0, y0 + pad_y), min(h, y1 - pad_y)
             roi = dark[yy0:yy1, name_x0:name_x1]
-            if roi.size == 0 or float(roi.mean()) < 0.0045:
+            if roi.size == 0 or float(roi.mean()) < 0.008:
                 continue
             crop = _normalize_line_crop(clean.crop((name_x0, yy0, name_x1, yy1)))
             if crop is None:
