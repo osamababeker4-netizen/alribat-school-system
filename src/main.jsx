@@ -317,7 +317,7 @@ async function recognizeArabicHandwriting(source,setProgress,label="الصورة
  form.append("file",blob,blob.name||"notebook.jpg");
 
  const ctrl=new AbortController();
- const timeoutMs=health.modelReady?45000:60000;
+ const timeoutMs=health.modelReady?35000:20000;
  const timer=setTimeout(()=>ctrl.abort(),timeoutMs);
  const p1=setTimeout(()=>setProgress(health.modelReady?"قراءة الأسماء العربية من عمود الاسم...":"تحميل نموذج الخط العربي لأول استخدام..."),6000);
  const p2=setTimeout(()=>setProgress("معالجة السطور وربط كل اسم بصفه — الرجاء الانتظار قليلًا..."),18000);
@@ -670,24 +670,38 @@ function scoreOcrResult(rows,confidence){
  return good*120+avg+Math.min(100,confidence);
 }
 async function recognizeStudentSource(source,setProgress,label="الصورة"){
- let htrRows=[];
- try{htrRows=await recognizeArabicHandwriting(source,setProgress,label)}catch(e){console.warn("Arabic HTR fallback",e);setProgress((e?.message||"تعذر محرك الخط العربي")+" — جاري تشغيل القراءة الاحتياطية...")}
- let paddlePack=null;
- try{paddlePack=await recognizeWithPaddle(source,setProgress,label)}catch(e){console.warn("PaddleOCR detail fallback",e)}
+ setProgress("بدء القراءة المتوازية: الأسماء العربية + تفاصيل الصف...");
+ const htrPromise=recognizeArabicHandwriting(source,setProgress,label)
+   .then(rows=>({rows,error:null}))
+   .catch(error=>({rows:[],error}));
+ const paddlePromise=recognizeWithPaddle(source,setProgress,label)
+   .then(pack=>({pack,error:null}))
+   .catch(error=>({pack:null,error}));
 
- if(htrRows.length){
-  const layout=htrRows[0]?._htrLayout||{};
-  if(paddlePack?.items?.length){
+ // Run both engines together. The browser-side table OCR normally finishes
+ // first; after that we only give HTR a short grace period, never a long freeze.
+ const paddleResult=await paddlePromise;
+ const htrResult=await Promise.race([
+  htrPromise,
+  new Promise(resolve=>setTimeout(()=>resolve({rows:[],error:new Error("HTR still warming")}),4500))
+ ]);
+
+ if(htrResult.rows?.length){
+  const layout=htrResult.rows[0]?._htrLayout||{};
+  if(paddleResult.pack?.items?.length){
    setProgress("ربط الاسم وتاريخ الميلاد والجوال والرسوم بنفس الصف...");
-   return mergeLedgerDetails(htrRows,paddlePack.items,layout);
+   return mergeLedgerDetails(htrResult.rows,paddleResult.pack.items,layout);
   }
-  return htrRows;
+  return htrResult.rows;
  }
 
- // If the handwriting service is unavailable, keep a browser-side fallback
- // instead of blocking the user's import entirely.
- if(paddlePack?.rows?.length)return paddlePack.rows;
+ if(paddleResult.pack?.rows?.length){
+  if(htrResult.error)console.warn("Arabic HTR deferred/fallback",htrResult.error);
+  setProgress("تمت القراءة بالمحرك السريع؛ محرك الخط اليدوي لم يؤخر النتيجة.");
+  return paddleResult.pack.rows;
+ }
 
+ // Last-resort compatibility fallback if both modern engines fail.
  const worker=await getStudentOcrWorker(setProgress);
  setProgress("تشغيل القراءة الاحتياطية...");
  const contrast=await preprocessStudentImage(source,"contrast");
