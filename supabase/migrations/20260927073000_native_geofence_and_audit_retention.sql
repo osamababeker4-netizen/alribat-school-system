@@ -97,7 +97,7 @@ $$;
 
 create or replace function public.record_staff_geofence_event(
   p_event text, p_lat double precision, p_lng double precision,
-  p_accuracy double precision, p_device_id text
+  p_accuracy double precision, p_device_id text default null
 ) returns jsonb language plpgsql security definer
 set search_path to 'public','private'
 as $$
