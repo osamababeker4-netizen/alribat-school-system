@@ -9,6 +9,7 @@
     <application
         android:name=".RibatApp"
         android:allowBackup="false"
+        android:usesCleartextTraffic="false"
         android:label="حضور مدرسة الرباط"
         android:theme="@style/Theme.AlRibatAttendance">
         <activity android:name=".MainActivity" android:exported="true">
