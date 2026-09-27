@@ -12,7 +12,7 @@ services:
     autoDeployTrigger: commit
     envVars:
       - key: VITE_OCR_SERVICE_URL
-        value: https://alribat-arabic-htr.onrender.com
+        value: https://alribat-arabic-htr-stable.onrender.com
     previews:
       generation: off
     routes:
