@@ -683,3 +683,13 @@ table tbody tr:hover td{background:#fff8e8!important}
 .geoSettings{display:grid;gap:12px}.geoSettingsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .geoBlockedText{color:#a04d2c!important;font-weight:700}.geoMeta{display:block;margin-top:3px;color:#786b4e}.geoOk{display:inline-flex;align-items:center;padding:5px 8px;border-radius:999px;background:#eef5e8;color:#4e6c36;font-size:11px;font-weight:700}
 @media(max-width:760px){.geoFenceBanner{align-items:flex-start;flex-direction:column}.geoSettingsGrid{grid-template-columns:1fr}}
+
+/* SMART STUDENT IMPORT v1.8.0 */
+.studentImport{display:grid;gap:14px;min-width:min(1120px,86vw)}
+.studentImport .importDrop{border:1.5px dashed #c9a44b;border-radius:18px;padding:20px;display:grid;place-items:center;text-align:center;gap:8px;background:linear-gradient(135deg,#fffdf8,#fff6df);cursor:pointer}
+.studentImport .importDrop b{color:#6f4c08;font-size:16px}.studentImport .importDrop span{color:#786b4e;max-width:720px;line-height:1.7}
+.importProgress,.importError,.importNote{padding:11px 14px;border-radius:12px}.importProgress{background:#fff7df;color:#76510b;border:1px solid #e5ca83}.importError{background:#fff0e8;color:#9a4435;border:1px solid #e2ae94}.importNote{background:#f7f3e7;color:#65583a;border:1px solid #dfd3b2;font-size:12px}
+.importSummary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.importSummary span{padding:10px 12px;border:1px solid #e3d3a7;border-radius:12px;background:#fffdf8;color:#786b4e;text-align:center}.importSummary b{display:block;color:#6f4c08;font-size:20px;margin-top:2px}
+.importPreview{max-height:52vh;overflow:auto;border:1px solid #e6d8b5;border-radius:14px}.importPreview table{min-width:1080px}.importPreview input{min-width:100px;width:100%;padding:8px}.importPreview td:nth-child(2) input{min-width:190px}.importDuplicate td{background:#fff1ec!important}.importExisting td{background:#fff9e8!important}
+.modal:has(.studentImport){width:min(1180px,94vw);max-width:none}
+@media(max-width:760px){.studentImport{min-width:0}.importSummary{grid-template-columns:repeat(2,minmax(0,1fr))}.modal:has(.studentImport){width:96vw}.studentImport .importDrop{padding:14px}}
