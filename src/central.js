@@ -170,3 +170,19 @@ export async function setSchoolUserActive(userId,active){
   if(error)throw error;
   return data;
 }
+
+
+export async function recordStaffGeofenceEvent(event,pos,deviceId="web-browser"){
+  if(!centralEnabled)throw new Error("الاتصال المركزي غير مفعّل");
+  const lat=Number(pos?.lat??pos?.coords?.latitude),lng=Number(pos?.lng??pos?.coords?.longitude),accuracy=Number(pos?.accuracy??pos?.coords?.accuracy);
+  if(!Number.isFinite(lat)||!Number.isFinite(lng)||!Number.isFinite(accuracy)||accuracy<=0)throw new Error("بيانات الموقع غير صالحة");
+  const {data,error}=await supabase.rpc("record_staff_geofence_event",{
+    p_event:event,
+    p_lat:lat,
+    p_lng:lng,
+    p_accuracy:accuracy,
+    p_device_id:String(deviceId||"web-browser").slice(0,128)
+  });
+  if(error)throw error;
+  return data;
+}
