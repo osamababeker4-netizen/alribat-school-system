@@ -754,3 +754,5 @@ table tbody tr:hover td{background:#fff8e8!important}
 .backNav{display:inline-flex;align-items:center;justify-content:center;gap:6px;margin:0 0 6px;padding:7px 11px;border-radius:10px;border:1px solid #dec98e;background:#fffaf0;color:#76510b;font-weight:800;cursor:pointer}
 .backNav:hover{background:#fff3cf}
 @media(max-width:760px){.backNav{padding:6px 9px;font-size:12px;margin-bottom:4px}}
+
+.studentPendingFlag{display:block;margin-top:4px;font-size:10px;font-weight:800;color:#9a5a16}
