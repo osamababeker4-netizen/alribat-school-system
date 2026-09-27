@@ -211,7 +211,10 @@ def _prepare_page(image: Image.Image):
     row_ratio = layout_dark.mean(axis=1)
     col_ratio = layout_dark.mean(axis=0)
     grid_rows = row_ratio > 0.72
-    grid_cols = col_ratio > 0.72
+    # Continuous vertical ledger borders are much longer than handwriting.
+    # Remove them from the recogniser bitmap so blank rows cannot be mistaken
+    # for text because of a page/column border.
+    grid_cols = col_ratio > 0.34
 
     if grid_rows.any():
         for y in np.flatnonzero(grid_rows):
@@ -289,23 +292,98 @@ def _name_column_bounds(layout_dark: np.ndarray):
     if right - left < int(w * 0.19):
         left = int(w * 0.62)
 
-    return max(0, left + 3), min(w, right), rules
+    # Keep a small amount of context left of the detected separator because
+    # long Arabic names can cross the hand-drawn rule slightly. Stop before
+    # the extreme right page border so the recogniser sees text, not a tall line.
+    left = max(0, left - int(w * 0.025))
+    right = min(w, int(w * 0.968))
+    return left, right, rules
 
 
 def _horizontal_rules(layout_dark: np.ndarray, x0: int, x1: int):
-    roi = layout_dark[:, x0:x1]
-    if roi.size == 0:
+    """Recover ruled-notebook row lines from their periodic spacing.
+
+    The Alribat ledgers use light blue horizontal rules. A fixed darkness
+    threshold misses them, while handwriting itself can be darker. The grid is
+    highly periodic, so estimate the row pitch by autocorrelation, then find
+    the best phase and locally refine each predicted rule.
+    """
+    h, w = layout_dark.shape
+    if h < 120 or w < 120:
         return []
-    row_ratio = roi.mean(axis=1)
-    h = layout_dark.shape[0]
-    threshold = max(0.22, float(np.quantile(row_ratio, 0.975)) * 0.68)
-    strong = np.flatnonzero(row_ratio >= threshold)
-    groups = _cluster_indices(strong, max_gap=max(2, h // 800))
-    return [
-        int((a + b) / 2)
-        for a, b in groups
-        if (b - a) <= max(16, h // 55)
-    ]
+
+    # Use most of the paper width: real notebook rules span the page while
+    # handwriting occupies only part of each row.
+    xa, xb = int(w * 0.05), int(w * 0.95)
+    profile = layout_dark[:, xa:xb].mean(axis=1).astype(np.float64)
+
+    ya, yb = int(h * 0.07), int(h * 0.93)
+    core = profile[ya:yb]
+    if core.size < 80:
+        return []
+
+    centered = core - float(core.mean())
+    min_lag = max(24, h // 100)
+    max_lag = min(145, max(min_lag + 8, h // 10))
+    if max_lag <= min_lag:
+        return []
+
+    best_lag = None
+    best_corr = -1e30
+    for lag in range(min_lag, max_lag + 1):
+        if lag >= centered.size - 8:
+            break
+        a = centered[:-lag]
+        b = centered[lag:]
+        denom = max(1, a.size)
+        corr = float(np.dot(a, b)) / denom
+        if corr > best_corr:
+            best_corr = corr
+            best_lag = lag
+
+    if not best_lag:
+        return []
+
+    lag = int(best_lag)
+
+    # Find which phase of the periodic sequence most often lands on a dark
+    # ruled line. Squaring the profile rewards long page-spanning strokes and
+    # reduces the influence of isolated handwriting.
+    best_phase = 0
+    best_score = -1.0
+    for phase in range(lag):
+        ys = np.arange(ya + phase, yb, lag, dtype=int)
+        if ys.size < 5:
+            continue
+        vals = profile[ys]
+        score = float(np.sum(vals * vals))
+        if score > best_score:
+            best_score = score
+            best_phase = phase
+
+    predicted = np.arange(ya + best_phase, yb, lag, dtype=int)
+    refined = []
+    radius = max(3, int(round(lag * 0.13)))
+    for y in predicted:
+        a = max(0, y - radius)
+        b = min(h, y + radius + 1)
+        if b <= a:
+            continue
+        local = profile[a:b]
+        yy = int(a + np.argmax(local))
+        if not refined or yy - refined[-1] > max(5, lag // 3):
+            refined.append(yy)
+
+    # Validate that we truly found a notebook grid. Normal row gaps should
+    # remain close to the inferred pitch.
+    if len(refined) >= 6:
+        gaps = np.diff(refined)
+        med = float(np.median(gaps))
+        if med >= min_lag * 0.75 and med <= max_lag * 1.25:
+            return refined
+
+    return []
+
 
 
 def _normalize_line_crop(crop: Image.Image):
@@ -353,7 +431,8 @@ def _ledger_rows(image: Image.Image):
             pad_y = max(3, int(height * 0.08))
             yy0, yy1 = max(0, y0 + pad_y), min(h, y1 - pad_y)
             roi = dark[yy0:yy1, name_x0:name_x1]
-            if roi.size == 0 or float(roi.mean()) < 0.0045:
+            density = float(roi.mean()) if roi.size else 0.0
+            if roi.size == 0 or density < 0.03:
                 continue
             crop = _normalize_line_crop(clean.crop((name_x0, yy0, name_x1, yy1)))
             if crop is None:
@@ -363,6 +442,7 @@ def _ledger_rows(image: Image.Image):
                 "y1": yy1,
                 "y": (yy0 + yy1) / 2,
                 "crop": crop,
+                "inkDensity": density,
             })
 
     # Fallback for faint/perspective-distorted ruled lines.
@@ -380,6 +460,10 @@ def _ledger_rows(image: Image.Image):
                 continue
             pad = max(5, int((y1 - y0) * 0.34))
             yy0, yy1 = max(0, y0 - pad), min(h, y1 + pad)
+            band = dark[yy0:yy1, name_x0:name_x1]
+            density = float(band.mean()) if band.size else 0.0
+            if density < 0.03:
+                continue
             crop = _normalize_line_crop(clean.crop((name_x0, yy0, name_x1, yy1)))
             if crop is None:
                 continue
@@ -388,6 +472,7 @@ def _ledger_rows(image: Image.Image):
                 "y1": yy1,
                 "y": (yy0 + yy1) / 2,
                 "crop": crop,
+                "inkDensity": density,
             })
 
     # Merge accidental duplicate bands.
@@ -398,6 +483,23 @@ def _ledger_rows(image: Image.Image):
             continue
         dedup.append(spec)
         last_y = spec["y"]
+
+    if len(dedup) >= 2:
+        gaps = [dedup[i]["y"] - dedup[i-1]["y"] for i in range(1, len(dedup))]
+        normal_gaps = [g for g in gaps if g > 0]
+        pitch = float(np.median(normal_gaps)) if normal_gaps else max(20.0, h * 0.025)
+        blocks = []
+        block = [dedup[0]]
+        for spec in dedup[1:]:
+            if spec["y"] - block[-1]["y"] <= max(pitch * 2.25, h * 0.07):
+                block.append(spec)
+            else:
+                blocks.append(block)
+                block = [spec]
+        blocks.append(block)
+        # Prefer the largest block; for ties prefer the earlier block because
+        # student entries start near the top of the ledger.
+        dedup = max(blocks, key=lambda b: (len(b), -b[0]["y"]))
 
     orig_w = max(1, int(page_meta.get("originalWidth") or w))
     orig_h = max(1, int(page_meta.get("originalHeight") or h))
@@ -463,7 +565,7 @@ def _quality(text: str):
 
 @app.get("/health")
 def health():
-    return {"ok": True, "engine": "arabic-htr-v2.1-page-crop", "model": MODEL_REPO, "segmentation": "paper-crop+ledger-name-column", "modelReady": _model_bundle is not None}
+    return {"ok": True, "engine": "arabic-htr-v2.2-periodic-grid", "model": MODEL_REPO, "segmentation": "paper-crop+periodic-ledger-grid+name-column", "modelReady": _model_bundle is not None}
 
 @app.post("/ocr")
 async def ocr(
@@ -480,6 +582,7 @@ async def ocr(
         raise HTTPException(400, "Unsupported image")
     model, charset, cfg, recognise_line = _load_model()
     row_specs, layout = _line_crops(image)
+    print(f"HTR segmentation rows={len(row_specs)} pageBox={layout.get('pageBox')} nameColumn={layout.get('nameColumn')}", flush=True)
     lines = []
     h = max(1, int(layout.get("imageHeight") or 1))
     for idx, spec in enumerate(row_specs, start=1):
