@@ -28,6 +28,10 @@ has(main,'<Staff db={db} search={search} setSearch={setSearch} mutate={mutate} s
 has(main,'function StudentEditModal({student,db,mutate,close})','student editor must validate against live database');
 has(main,'db.students.some(x=>importKeyName(x.name)===importKeyName(name))','manual student creation must reject duplicates');
 has(main,'review.length?"لا توجد صفوف موثوقة للحفظ بعد.','OCR review rows must be blocked from save');
+has(main,'ocrVersion:"PP-OCRv5"','advanced Arabic OCR engine missing');
+has(main,'lang:"ar"','Arabic OCR language must be explicit');
+has(main,'_ocrSource:"paddle-ar-v5"','Paddle Arabic OCR results must be traceable');
+has(main,'tesseract-fallback','compatibility OCR fallback missing');
 has(main,'setRows(r=>r.filter(x=>!savedIds.has(x._id)','OCR review rows must remain open after partial save');
 has(main,'const openNotes=()=>','notification bell must mark/read via one controlled action');
 has(main,'className="backNav"','back navigation must be wired');
