@@ -409,6 +409,30 @@ function paddleConfidence(score){
  return Math.max(0,Math.min(100,n<=1?n*100:n));
 }
 
+
+async function rotateLedgerSource(source,angle=0){
+ const a=((Number(angle)||0)%360+360)%360;
+ if(!a)return source;
+ const bitmap=source instanceof HTMLCanvasElement?source:await createImageBitmap(source);
+ const sw=bitmap.width||1,sh=bitmap.height||1;
+ const canvas=document.createElement("canvas");
+ if(a===90||a===270){canvas.width=sh;canvas.height=sw}else{canvas.width=sw;canvas.height=sh}
+ const ctx=canvas.getContext("2d");
+ ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);
+ if(a===90){
+  ctx.translate(0,sw);
+  ctx.rotate(-Math.PI/2);
+ }else if(a===180){
+  ctx.translate(sw,sh);
+  ctx.rotate(Math.PI);
+ }else if(a===270){
+  ctx.translate(sh,0);
+  ctx.rotate(Math.PI/2);
+ }
+ ctx.drawImage(bitmap,0,0,sw,sh);
+ if(!(source instanceof HTMLCanvasElement)&&bitmap.close)bitmap.close();
+ return canvas;
+}
 async function sourceDimensions(source){
  if(source instanceof HTMLCanvasElement)return{width:source.width||1,height:source.height||1};
  const bitmap=await createImageBitmap(source);
@@ -681,28 +705,32 @@ function scoreOcrResult(rows,confidence){
  return good*120+avg+Math.min(100,confidence);
 }
 async function recognizeStudentSource(source,setProgress,label="الصورة"){
- // Start table/details OCR in parallel, but HTR is authoritative for names.
- // We never race it against a 4.5-second timer and never replace handwritten
- // names with Paddle/Tesseract guesses.
- const paddlePromise=recognizeWithPaddle(source,setProgress,label)
-   .then(pack=>({pack,error:null}))
-   .catch(error=>({pack:null,error}));
-
  if(HANDWRITING_OCR_URL&&centralEnabled){
+  // HTR determines the physical page orientation first. The details OCR must
+  // read the same rotated page or row coordinates will not match.
   const htrRows=await recognizeArabicHandwriting(source,setProgress,label);
-  const paddleResult=await paddlePromise;
-  if(paddleResult.pack?.items?.length){
+  const layout=htrRows[0]?._htrLayout||{};
+  const rotation=Number(layout.rotation||0);
+  let detailsSource=source;
+  if(rotation){
+   setProgress("تصحيح اتجاه الصفحة تلقائيًا "+rotation+"° ثم قراءة التفاصيل...");
+   detailsSource=await rotateLedgerSource(source,rotation);
+  }
+  let paddlePack=null;
+  try{paddlePack=await recognizeWithPaddle(detailsSource,setProgress,label)}catch(e){console.warn("Paddle details OCR failed",e)}
+  if(paddlePack?.items?.length){
    setProgress("ربط الاسم وتاريخ الميلاد والجوال والرسوم بنفس الصف...");
-   const layout=htrRows[0]?._htrLayout||{};
-   return mergeLedgerDetails(htrRows,paddleResult.pack.items,layout);
+   // After rotating the browser-side image, HTR coordinates and Paddle
+   // coordinates are in the same orientation. PageBox/columns are retained.
+   return mergeLedgerDetails(htrRows,paddlePack.items,layout);
   }
   return htrRows;
  }
 
- // Compatibility path only when the specialised handwriting service is not
- // configured at all (for example, an offline/local development copy).
- const paddleResult=await paddlePromise;
- if(paddleResult.pack?.rows?.length)return paddleResult.pack.rows;
+ // Offline/local development compatibility only.
+ let paddlePack=null;
+ try{paddlePack=await recognizeWithPaddle(source,setProgress,label)}catch{}
+ if(paddlePack?.rows?.length)return paddlePack.rows;
 
  const worker=await getStudentOcrWorker(setProgress);
  setProgress("تشغيل OCR المحلي الاحتياطي...");
