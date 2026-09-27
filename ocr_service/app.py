@@ -300,89 +300,126 @@ def _name_column_bounds(layout_dark: np.ndarray):
     return left, right, rules
 
 
-def _horizontal_rules(layout_dark: np.ndarray, x0: int, x1: int):
-    """Recover ruled-notebook row lines from their periodic spacing.
+def _horizontal_rules(clean: Image.Image, layout_dark: np.ndarray, x0: int, x1: int):
+    """Detect ledger rows from the repeated ruled-line pitch.
 
-    The Alribat ledgers use light blue horizontal rules. A fixed darkness
-    threshold misses them, while handwriting itself can be darker. The grid is
-    highly periodic, so estimate the row pitch by autocorrelation, then find
-    the best phase and locally refine each predicted rule.
+    Light notebook rules are easiest to see in the mostly-empty left side of
+    the sheet. We first find the longest clean periodic run there (usually in
+    the empty lower half), estimate the row pitch, then extend that grid
+    upward through the handwritten names. This is much more stable than
+    thresholding the light blue lines by darkness.
     """
-    h, w = layout_dark.shape
-    if h < 120 or w < 120:
+    gray = np.array(clean.convert("L"), dtype=np.uint8, copy=False)
+    h, w = gray.shape
+    if h < 140 or w < 140:
         return []
 
-    # Use most of the paper width: real notebook rules span the page while
-    # handwriting occupies only part of each row.
-    xa, xb = int(w * 0.05), int(w * 0.95)
-    profile = layout_dark[:, xa:xb].mean(axis=1).astype(np.float64)
+    xa, xb = int(w * 0.04), int(w * 0.22)
+    ya, yb = int(h * 0.10), int(h * 0.90)
+    strip = gray[:, xa:xb]
+    if strip.size == 0:
+        return []
 
-    ya, yb = int(h * 0.07), int(h * 0.93)
-    core = profile[ya:yb]
+    profile = 255.0 - strip.mean(axis=1).astype(np.float64)
+    kernel = max(3, int(round(h * 0.0015)))
+    if kernel % 2 == 0:
+        kernel += 1
+    smooth = np.convolve(profile, np.ones(kernel) / kernel, mode="same")
+
+    core = smooth[ya:yb]
     if core.size < 80:
         return []
 
-    centered = core - float(core.mean())
-    min_lag = max(24, h // 100)
-    max_lag = min(145, max(min_lag + 8, h // 10))
-    if max_lag <= min_lag:
+    threshold = max(float(np.median(core)) + 3.0, float(np.quantile(core, 0.60)))
+    radius = max(2, h // 1200)
+
+    candidates = []
+    for i in range(radius, core.size - radius):
+        value = core[i]
+        if value < threshold:
+            continue
+        if value >= float(np.max(core[i - radius:i + radius + 1])):
+            candidates.append(i + ya)
+
+    # Non-maximum suppression: one peak per physical ruled line.
+    min_distance = max(12, h // 180)
+    peaks = []
+    for y in candidates:
+        if not peaks or y - peaks[-1] >= min_distance:
+            peaks.append(y)
+        elif smooth[y] > smooth[peaks[-1]]:
+            peaks[-1] = y
+
+    if len(peaks) < 6:
         return []
 
-    best_lag = None
-    best_corr = -1e30
-    for lag in range(min_lag, max_lag + 1):
-        if lag >= centered.size - 8:
+    # The expected ledger pitch is roughly 1.1–2.6% of page height. Find the
+    # longest run inside that range; it is normally the clean lower grid.
+    min_gap = max(18, int(h * 0.011))
+    max_gap = max(min_gap + 8, int(h * 0.026))
+    runs = []
+    current = []
+    for y in peaks:
+        if not current:
+            current = [y]
+        elif min_gap <= y - current[-1] <= max_gap:
+            current.append(y)
+        else:
+            if len(current) >= 3:
+                runs.append(current)
+            current = [y]
+    if len(current) >= 3:
+        runs.append(current)
+
+    if not runs:
+        return []
+
+    base = max(runs, key=lambda r: (len(r), r[-1] - r[0]))
+    if len(base) < 4:
+        return []
+
+    gaps = np.diff(base[: min(len(base), 14)])
+    pitch = float(np.median(gaps[gaps > 0])) if np.any(gaps > 0) else 0.0
+    if pitch < min_gap * 0.75 or pitch > max_gap * 1.25:
+        return []
+
+    # Extend the clean lower-page grid upward through the populated rows.
+    rules = list(base)
+    snap_radius = max(5, int(round(pitch * 0.23)))
+    y = float(rules[0])
+    while y - pitch > ya:
+        predicted = y - pitch
+        lo = max(ya, int(round(predicted - snap_radius)))
+        hi = min(yb, int(round(predicted + snap_radius + 1)))
+        if hi <= lo:
             break
-        a = centered[:-lag]
-        b = centered[lag:]
-        denom = max(1, a.size)
-        corr = float(np.dot(a, b)) / denom
-        if corr > best_corr:
-            best_corr = corr
-            best_lag = lag
+        local = smooth[lo:hi]
+        snapped = int(lo + np.argmax(local))
+        rules.insert(0, snapped)
+        y = float(snapped)
 
-    if not best_lag:
-        return []
+    # Extend down too if the detected base run ended before the paper grid.
+    y = float(rules[-1])
+    while y + pitch < yb:
+        predicted = y + pitch
+        lo = max(ya, int(round(predicted - snap_radius)))
+        hi = min(yb, int(round(predicted + snap_radius + 1)))
+        if hi <= lo:
+            break
+        local = smooth[lo:hi]
+        snapped = int(lo + np.argmax(local))
+        if snapped - rules[-1] < max(8, int(pitch * 0.45)):
+            snapped = int(round(predicted))
+        rules.append(snapped)
+        y = float(snapped)
 
-    lag = int(best_lag)
+    # Deduplicate any snapped peaks that landed on the same thick line.
+    out = []
+    for y in sorted(rules):
+        if not out or y - out[-1] >= max(8, int(pitch * 0.45)):
+            out.append(int(y))
 
-    # Find which phase of the periodic sequence most often lands on a dark
-    # ruled line. Squaring the profile rewards long page-spanning strokes and
-    # reduces the influence of isolated handwriting.
-    best_phase = 0
-    best_score = -1.0
-    for phase in range(lag):
-        ys = np.arange(ya + phase, yb, lag, dtype=int)
-        if ys.size < 5:
-            continue
-        vals = profile[ys]
-        score = float(np.sum(vals * vals))
-        if score > best_score:
-            best_score = score
-            best_phase = phase
-
-    predicted = np.arange(ya + best_phase, yb, lag, dtype=int)
-    refined = []
-    radius = max(3, int(round(lag * 0.13)))
-    for y in predicted:
-        a = max(0, y - radius)
-        b = min(h, y + radius + 1)
-        if b <= a:
-            continue
-        local = profile[a:b]
-        yy = int(a + np.argmax(local))
-        if not refined or yy - refined[-1] > max(5, lag // 3):
-            refined.append(yy)
-
-    # Validate that we truly found a notebook grid. Normal row gaps should
-    # remain close to the inferred pitch.
-    if len(refined) >= 6:
-        gaps = np.diff(refined)
-        med = float(np.median(gaps))
-        if med >= min_lag * 0.75 and med <= max_lag * 1.25:
-            return refined
-
-    return []
+    return out
 
 
 
@@ -416,7 +453,7 @@ def _ledger_rows(image: Image.Image):
     clean, dark, layout_dark, page_meta = _prepare_page(image)
     h, w = dark.shape
     name_x0, name_x1, vertical_rules = _name_column_bounds(layout_dark)
-    rules = sorted(set(_horizontal_rules(layout_dark, name_x0, name_x1)))
+    rules = sorted(set(_horizontal_rules(clean, layout_dark, name_x0, name_x1)))
 
     row_specs = []
     if len(rules) >= 4:
@@ -426,7 +463,7 @@ def _ledger_rows(image: Image.Image):
                 continue
             cy = (y0 + y1) / 2
             # Skip the handwritten page title/header band.
-            if cy < h * 0.15:
+            if cy < h * 0.17:
                 continue
             pad_y = max(3, int(height * 0.08))
             yy0, yy1 = max(0, y0 + pad_y), min(h, y1 - pad_y)
@@ -456,7 +493,7 @@ def _ledger_rows(image: Image.Image):
             if y1 - y0 < max(12, h // 165):
                 continue
             cy = (y0 + y1) / 2
-            if cy < h * 0.15:
+            if cy < h * 0.17:
                 continue
             pad = max(5, int((y1 - y0) * 0.34))
             yy0, yy1 = max(0, y0 - pad), min(h, y1 + pad)
