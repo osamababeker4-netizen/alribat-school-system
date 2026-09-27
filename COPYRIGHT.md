@@ -3,7 +3,7 @@
 ## Alribat School System — مدرسة الرباط
 
 **Software owner / intellectual-property claimant:** Eng. Osama Ismail  
-**Release:** v1.8.0  
+**Release:** v1.9.0  
 **Ownership record date:** 2026-09-26  
 **Repository:** osamababeker4-netizen/alribat-school-system
 
@@ -19,7 +19,7 @@ I, **Eng. Osama Ismail**, identify myself as the owner/claimant of the software 
 
 **Electronic signature:** Eng. Osama Ismail  
 **Date:** 2026-09-26  
-**Release:** v1.8.0
+**Release:** v1.9.0
 
 The approved handwritten signature is stored at `public/alribat-owner-signature.svg` and is part of this ownership record. The Git commit history and timestamps provide a separate technical record of when this notice and the related source revisions were committed.
 
@@ -35,5 +35,5 @@ This notice records a copyright/ownership claim and provenance inside the projec
 Signature asset approved by the owner for use as the visual ownership signature of this software release.
 
 
-## Official document policy — v1.8.0
+## Official document policy — v1.9.0
 The handwritten ownership signature remains part of the software ownership record, but is intentionally **not displayed on official school documents**. Official receipts, grade sheets, and reports use the school stamp plus written copyright/ownership text in the footer only.
