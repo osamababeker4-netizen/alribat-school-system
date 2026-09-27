@@ -50,6 +50,12 @@ has(main,'max={today()}','student attendance must block future dates');
 has(main,'رمز الصنف مستخدم بالفعل','inventory duplicate SKU protection missing');
 has(main,'centralEnabled?<><b>{user.name}</b>','production account switch hardening missing');
 has(main,'CORE_FEE_FIELDS','core registration/tuition fee mapping missing');
+has(main,'SCHOOL_TZ="Africa/Khartoum"','school timezone must be explicit');
+has(main,'recordStaffGeofenceEvent(kind==="in"?"enter":"exit"','browser geofence must use secure server RPC');
+ok(!main.includes('function autoAttendanceWrite('),"browser geofence must not write attendance locally");
+has(main,'quantity:num(x.quantity)+delta','inventory balance update must be numeric');
+has(main,'nextRequestNumber','request numbering must not depend on array length');
+
 has(main,'gradeCounts=[...gradeMap.entries()]','dashboard must use real grade/student data');
 has(main,'setModal({type:"notes"})','dashboard notification navigation missing');
 has(main,'quick=[["الطلاب"','authorized quick-action map missing');
@@ -70,7 +76,7 @@ has(main,'const openNotes=()=>','notification bell must mark/read via one contro
 has(main,'className="backNav"','back navigation must be wired');
 has(main,'x.authId!==db.central?.userId','current authenticated account must not be disabled from UI');
 
-for(const fn of ["inviteSchoolUser","setSchoolUserActive","updateMyPhone"]){
+for(const fn of ["inviteSchoolUser","setSchoolUserActive","updateMyPhone","recordStaffGeofenceEvent"]){
   has(central,"export async function "+fn, "central function missing: "+fn);
 }
 for(const fn of ["subscribeCentralChanges","queueCentralSave"]){
