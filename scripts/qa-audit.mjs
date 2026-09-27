@@ -50,6 +50,11 @@ has(main,'max={today()}','student attendance must block future dates');
 has(main,'رمز الصنف مستخدم بالفعل','inventory duplicate SKU protection missing');
 has(main,'centralEnabled?<><b>{user.name}</b>','production account switch hardening missing');
 has(main,'CORE_FEE_FIELDS','core registration/tuition fee mapping missing');
+has(main,'readOnly={hasCoreFees(db,student.id)}','finance-derived student balance must be protected');
+has(main,'audit("استيراد","النسخ الاحتياطي"','backup restore must leave an audit entry');
+has(main,'decisionAt:new Date().toISOString()','request decisions must carry a timestamp');
+has(main,'_ocrSource:"arabic-htr-v2.3"','HTR result trace version is stale');
+
 has(main,'كل حساب مرتبطًا بموظف واحد فقط','staff account uniqueness guard missing');
 has(main,'رقم الجوال مستخدم في سجل موظف آخر','staff phone uniqueness guard missing');
 
