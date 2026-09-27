@@ -38,6 +38,18 @@ has(main,'birthDate','birth date field missing');
 has(main,'studentPhone','student phone field missing');
 has(main,'notebookFields','raw notebook detail preservation missing');
 has(main,'mergeLedgerDetails','row detail merger missing');
+has(main,'syncStudentCoreFees','student finance synchronizer missing');
+has(main,'syncStudentNameRefs','dependent student-name synchronizer missing');
+has(main,'nextReceiptNumber','safe receipt sequence generator missing');
+has(main,'coreFeeValidation','paid-fee amount validation missing');
+has(main,'x.message||x.body||""','legacy notification body fallback missing');
+has(main,'registrationFee:null,tuitionFee:null','unknown OCR fees must stay null rather than fake zero');
+has(main,'links.push("حضور")','student delete must protect attendance history');
+has(main,'links.push("درجات")','student delete must protect grade history');
+has(main,'max={today()}','student attendance must block future dates');
+has(main,'رمز الصنف مستخدم بالفعل','inventory duplicate SKU protection missing');
+has(main,'centralEnabled?<><b>{user.name}</b>','production account switch hardening missing');
+has(main,'CORE_FEE_FIELDS','core registration/tuition fee mapping missing');
 ok(!main.includes('label="الفصل"'),'student class/section field must be removed');
 ok(!main.includes('<th>الفصل</th>'),'student class/section list column must be removed');
 ok(!main.includes('student.className'),'student class/section references must be removed');
@@ -66,6 +78,10 @@ has(index,'meta name="app-version"','app-version meta missing');
 
 ok(!main.includes('onClick={()=>{}}'),"empty onClick handler found");
 ok(!main.includes('href="#"'),"placeholder href found");
+ok(!main.includes('registrationFee:vals.length>=3?vals[vals.length-3]:0'),"OCR still fabricates zero registration fees");
+ok(!main.includes('tuitionFee:vals.length>=2?vals[vals.length-2]:0'),"OCR still fabricates zero tuition fees");
+ok(!main.includes('String(db.payments.length+1).padStart'),"receipt numbers must not depend on array length");
+ok(!main.includes('تبديل محلي للاختبار. الدخول الحقيقي يحتاج Auth مركزي.'),"production local account-switch warning still exposed");
 ok(!/TODO|FIXME/.test(main+boot+central+store),"TODO/FIXME found in production source");
 
 const jsxButtons=[...main.matchAll(/<button\b([^>]*)>/g)]
