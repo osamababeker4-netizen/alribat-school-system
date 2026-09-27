@@ -293,19 +293,89 @@ def _name_column_bounds(layout_dark: np.ndarray):
 
 
 def _horizontal_rules(layout_dark: np.ndarray, x0: int, x1: int):
-    roi = layout_dark[:, x0:x1]
-    if roi.size == 0:
+    """Recover ruled-notebook row lines from their periodic spacing.
+
+    The Alribat ledgers use light blue horizontal rules. A fixed darkness
+    threshold misses them, while handwriting itself can be darker. The grid is
+    highly periodic, so estimate the row pitch by autocorrelation, then find
+    the best phase and locally refine each predicted rule.
+    """
+    h, w = layout_dark.shape
+    if h < 120 or w < 120:
         return []
-    row_ratio = roi.mean(axis=1)
-    h = layout_dark.shape[0]
-    threshold = max(0.22, float(np.quantile(row_ratio, 0.975)) * 0.68)
-    strong = np.flatnonzero(row_ratio >= threshold)
-    groups = _cluster_indices(strong, max_gap=max(2, h // 800))
-    return [
-        int((a + b) / 2)
-        for a, b in groups
-        if (b - a) <= max(16, h // 55)
-    ]
+
+    # Use most of the paper width: real notebook rules span the page while
+    # handwriting occupies only part of each row.
+    xa, xb = int(w * 0.05), int(w * 0.95)
+    profile = layout_dark[:, xa:xb].mean(axis=1).astype(np.float64)
+
+    ya, yb = int(h * 0.07), int(h * 0.93)
+    core = profile[ya:yb]
+    if core.size < 80:
+        return []
+
+    centered = core - float(core.mean())
+    min_lag = max(24, h // 100)
+    max_lag = min(145, max(min_lag + 8, h // 10))
+    if max_lag <= min_lag:
+        return []
+
+    best_lag = None
+    best_corr = -1e30
+    for lag in range(min_lag, max_lag + 1):
+        if lag >= centered.size - 8:
+            break
+        a = centered[:-lag]
+        b = centered[lag:]
+        denom = max(1, a.size)
+        corr = float(np.dot(a, b)) / denom
+        if corr > best_corr:
+            best_corr = corr
+            best_lag = lag
+
+    if not best_lag:
+        return []
+
+    lag = int(best_lag)
+
+    # Find which phase of the periodic sequence most often lands on a dark
+    # ruled line. Squaring the profile rewards long page-spanning strokes and
+    # reduces the influence of isolated handwriting.
+    best_phase = 0
+    best_score = -1.0
+    for phase in range(lag):
+        ys = np.arange(ya + phase, yb, lag, dtype=int)
+        if ys.size < 5:
+            continue
+        vals = profile[ys]
+        score = float(np.sum(vals * vals))
+        if score > best_score:
+            best_score = score
+            best_phase = phase
+
+    predicted = np.arange(ya + best_phase, yb, lag, dtype=int)
+    refined = []
+    radius = max(3, int(round(lag * 0.13)))
+    for y in predicted:
+        a = max(0, y - radius)
+        b = min(h, y + radius + 1)
+        if b <= a:
+            continue
+        local = profile[a:b]
+        yy = int(a + np.argmax(local))
+        if not refined or yy - refined[-1] > max(5, lag // 3):
+            refined.append(yy)
+
+    # Validate that we truly found a notebook grid. Normal row gaps should
+    # remain close to the inferred pitch.
+    if len(refined) >= 6:
+        gaps = np.diff(refined)
+        med = float(np.median(gaps))
+        if med >= min_lag * 0.75 and med <= max_lag * 1.25:
+            return refined
+
+    return []
+
 
 
 def _normalize_line_crop(crop: Image.Image):
@@ -463,7 +533,7 @@ def _quality(text: str):
 
 @app.get("/health")
 def health():
-    return {"ok": True, "engine": "arabic-htr-v2.1-page-crop", "model": MODEL_REPO, "segmentation": "paper-crop+ledger-name-column", "modelReady": _model_bundle is not None}
+    return {"ok": True, "engine": "arabic-htr-v2.2-periodic-grid", "model": MODEL_REPO, "segmentation": "paper-crop+periodic-ledger-grid+name-column", "modelReady": _model_bundle is not None}
 
 @app.post("/ocr")
 async def ocr(
@@ -480,6 +550,7 @@ async def ocr(
         raise HTTPException(400, "Unsupported image")
     model, charset, cfg, recognise_line = _load_model()
     row_specs, layout = _line_crops(image)
+    print(f"HTR segmentation rows={len(row_specs)} pageBox={layout.get('pageBox')} nameColumn={layout.get('nameColumn')}", flush=True)
     lines = []
     h = max(1, int(layout.get("imageHeight") or 1))
     for idx, spec in enumerate(row_specs, start=1):
