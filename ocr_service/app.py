@@ -126,15 +126,19 @@ def _prepare_page(image: Image.Image):
         image = image.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
     image = ImageOps.autocontrast(image, cutoff=1)
     image = ImageEnhance.Contrast(image).enhance(1.25)
-    arr = np.asarray(image, dtype=np.uint8)
-    threshold = _otsu(arr)
-    dark = arr < min(220, max(80, threshold + 12))
 
-    # Remove long notebook/table rules before finding handwriting bands.
-    row_ratio = dark.mean(axis=1)
-    col_ratio = dark.mean(axis=0)
+    # np.asarray(PIL) can be read-only; this must be a writable copy because
+    # the grid-removal pass intentionally paints table rules white.
+    arr = np.array(image, dtype=np.uint8, copy=True)
+    threshold = _otsu(arr)
+    layout_dark = arr < min(220, max(80, threshold + 12))
+    dark = layout_dark.copy()
+
+    row_ratio = layout_dark.mean(axis=1)
+    col_ratio = layout_dark.mean(axis=0)
     grid_rows = row_ratio > 0.58
     grid_cols = col_ratio > 0.58
+
     if grid_rows.any():
         for y in np.flatnonzero(grid_rows):
             y0, y1 = max(0, y - 2), min(dark.shape[0], y + 3)
@@ -145,7 +149,9 @@ def _prepare_page(image: Image.Image):
             x0, x1 = max(0, x - 2), min(dark.shape[1], x + 3)
             dark[:, x0:x1] = False
             arr[:, x0:x1] = 255
-    return Image.fromarray(arr), dark
+
+    return Image.fromarray(arr), dark, layout_dark
+
 
 def _cluster_indices(indices, max_gap=4):
     indices = [int(x) for x in indices]
@@ -163,138 +169,171 @@ def _cluster_indices(indices, max_gap=4):
     return groups
 
 
-def _name_column_bounds(dark: np.ndarray):
-    """Detect the notebook's right-most wide text column headed by «الاسم».
-
-    The school ledger consistently places the name field on the right side.
-    Detecting the vertical rule that separates it from the date/phone columns
-    prevents the HTR model from seeing fees, phone numbers, dates and row
-    numbers as if they were part of a student's name.
-    """
-    h, w = dark.shape
-    col_ratio = dark.mean(axis=0)
-
-    # Strong vertical rules are long blue/black table strokes. Work only in
-    # the middle/right part of the page and ignore the physical paper edge.
-    lo, hi = int(w * 0.42), int(w * 0.86)
-    threshold = max(0.22, float(np.quantile(col_ratio[lo:hi], 0.985)) * 0.72)
-    strong = np.flatnonzero(col_ratio[lo:hi] >= threshold) + lo
-    groups = _cluster_indices(strong, max_gap=max(2, w // 500))
-
-    candidates = []
+def _vertical_rules(layout_dark: np.ndarray):
+    h, w = layout_dark.shape
+    ratios = layout_dark.mean(axis=0)
+    threshold = max(0.20, float(np.quantile(ratios, 0.975)) * 0.68)
+    strong = np.flatnonzero(ratios >= threshold)
+    groups = _cluster_indices(strong, max_gap=max(2, w // 600))
+    centers = []
     for x0, x1 in groups:
-        cx = (x0 + x1) // 2
-        if not (lo <= cx <= hi):
+        cx = int((x0 + x1) / 2)
+        if cx < w * 0.015 or cx > w * 0.995:
             continue
-        strength = float(col_ratio[x0:x1].mean()) if x1 > x0 else float(col_ratio[cx])
-        # Prefer the strongest rule in the expected boundary zone. In the
-        # photographed ledgers this boundary normally sits around 60–75% W.
-        zone_bonus = 1.0 - min(abs(cx / max(w, 1) - 0.67), 0.30)
-        candidates.append((strength * (1.0 + zone_bonus), cx))
+        if x1 - x0 > max(18, w // 35):
+            continue
+        centers.append(cx)
+    # Deduplicate very close rules.
+    out = []
+    for x in sorted(centers):
+        if not out or x - out[-1] > max(8, w // 180):
+            out.append(x)
+    return out
 
+
+def _name_column_bounds(layout_dark: np.ndarray):
+    h, w = layout_dark.shape
+    rules = _vertical_rules(layout_dark)
+    candidates = [x for x in rules if w * 0.42 <= x <= w * 0.86]
     if candidates:
-        _, left = max(candidates)
+        # The name column left boundary on the school ledger is the strongest
+        # separator close to two-thirds of the page width.
+        ratios = layout_dark.mean(axis=0)
+        left = max(
+            candidates,
+            key=lambda x: float(ratios[x]) * (1.0 + max(0.0, 1.0 - abs(x / w - 0.67) / 0.25)),
+        )
     else:
-        left = int(w * 0.62)
+        left = int(w * 0.60)
 
-    # Drop only the thin handwritten row-number strip at the extreme right.
-    right = int(w * 0.975)
+    right_candidates = [x for x in rules if x > left + w * 0.12]
+    right = max(right_candidates) if right_candidates else int(w * 0.985)
     if right - left < int(w * 0.18):
-        left = int(w * 0.58)
-    return max(0, left + 4), min(w, right)
+        right = int(w * 0.985)
+    return max(0, left + 4), min(w, right - 3), rules
 
 
-def _horizontal_rules(dark: np.ndarray, x0: int, x1: int):
-    roi = dark[:, x0:x1]
+def _horizontal_rules(layout_dark: np.ndarray, x0: int, x1: int):
+    roi = layout_dark[:, x0:x1]
     if roi.size == 0:
         return []
     row_ratio = roi.mean(axis=1)
-    h = dark.shape[0]
-    threshold = max(0.24, float(np.quantile(row_ratio, 0.985)) * 0.72)
+    h = layout_dark.shape[0]
+    threshold = max(0.22, float(np.quantile(row_ratio, 0.975)) * 0.68)
     strong = np.flatnonzero(row_ratio >= threshold)
-    groups = _cluster_indices(strong, max_gap=max(2, h // 700))
-    return [int((a + b) / 2) for a, b in groups if b - a <= max(14, h // 65)]
+    groups = _cluster_indices(strong, max_gap=max(2, h // 800))
+    return [
+        int((a + b) / 2)
+        for a, b in groups
+        if (b - a) <= max(16, h // 55)
+    ]
 
 
-def _content_rows_in_name_column(clean: Image.Image, dark: np.ndarray, x0: int, x1: int):
-    """Return one crop per ledger row from the name column only."""
+def _normalize_line_crop(crop: Image.Image):
+    gray = ImageOps.autocontrast(crop.convert("L"), cutoff=1)
+    gray = ImageEnhance.Contrast(gray).enhance(1.35)
+    arr = np.array(gray, dtype=np.uint8, copy=True)
+    ink = arr < min(225, max(90, _otsu(arr) + 18))
+    ys, xs = np.where(ink)
+    if xs.size:
+        bx0, bx1 = max(0, int(xs.min()) - 12), min(gray.width, int(xs.max()) + 13)
+        by0, by1 = max(0, int(ys.min()) - 7), min(gray.height, int(ys.max()) + 8)
+        gray = gray.crop((bx0, by0, bx1, by1))
+    if gray.width < 70 or gray.height < 16:
+        return None
+    target_h = 72
+    scale = target_h / max(gray.height, 1)
+    target_w = max(120, min(1500, int(gray.width * scale)))
+    gray = gray.resize((target_w, target_h), Image.Resampling.LANCZOS)
+    canvas = Image.new("L", (gray.width + 40, target_h + 20), 255)
+    canvas.paste(gray, (20, 10))
+    return canvas.convert("RGB")
+
+
+def _ledger_rows(image: Image.Image):
+    """Segment the photographed ledger into physical rows and isolate names.
+
+    Returns both normalized name-line crops and normalized row geometry so the
+    browser OCR can attach DOB, phone and fee cells to exactly the same row.
+    """
+    clean, dark, layout_dark = _prepare_page(image)
     h, w = dark.shape
-    rules = _horizontal_rules(dark, x0, x1)
-    crops = []
+    name_x0, name_x1, vertical_rules = _name_column_bounds(layout_dark)
+    rules = sorted(set(_horizontal_rules(layout_dark, name_x0, name_x1)))
 
-    # Use the actual ledger horizontal rules when available. The first useful
-    # data row starts below the header area, so ignore very early intervals.
+    row_specs = []
     if len(rules) >= 4:
-        rules = sorted(set(rules))
         for y0, y1 in zip(rules, rules[1:]):
             height = y1 - y0
-            if height < max(20, h // 90) or height > max(150, h // 9):
+            if height < max(20, h // 95) or height > max(170, h // 8):
                 continue
             cy = (y0 + y1) / 2
-            if cy < h * 0.16:
+            # Skip the handwritten page title/header band.
+            if cy < h * 0.15:
                 continue
             pad_y = max(3, int(height * 0.08))
             yy0, yy1 = max(0, y0 + pad_y), min(h, y1 - pad_y)
-            roi = dark[yy0:yy1, x0:x1]
-            if roi.size == 0 or float(roi.mean()) < 0.006:
+            roi = dark[yy0:yy1, name_x0:name_x1]
+            if roi.size == 0 or float(roi.mean()) < 0.0045:
                 continue
-            crop = clean.crop((x0, yy0, x1, yy1))
-            crops.append((yy0, crop))
+            crop = _normalize_line_crop(clean.crop((name_x0, yy0, name_x1, yy1)))
+            if crop is None:
+                continue
+            row_specs.append({
+                "y0": yy0,
+                "y1": yy1,
+                "y": (yy0 + yy1) / 2,
+                "crop": crop,
+            })
 
-    # Fallback for photos where ruled lines are faint or perspective-warped:
-    # find handwriting bands, but still only inside the detected name column.
-    if len(crops) < 2:
-        roi = dark[:, x0:x1]
+    # Fallback for faint/perspective-distorted ruled lines.
+    if len(row_specs) < 2:
+        roi = dark[:, name_x0:name_x1]
         row_ink = roi.mean(axis=1)
-        active = row_ink > max(0.004, float(np.quantile(row_ink, 0.58)) * 0.23)
+        active = row_ink > max(0.0035, float(np.quantile(row_ink, 0.58)) * 0.22)
         bands = _runs(active, max_gap=max(6, h // 320))
-        crops = []
+        row_specs = []
         for y0, y1 in bands:
-            if y1 - y0 < max(12, h // 160):
+            if y1 - y0 < max(12, h // 165):
                 continue
             cy = (y0 + y1) / 2
-            if cy < h * 0.16:
+            if cy < h * 0.15:
                 continue
             pad = max(5, int((y1 - y0) * 0.34))
             yy0, yy1 = max(0, y0 - pad), min(h, y1 + pad)
-            band = dark[yy0:yy1, x0:x1]
-            if band.size == 0 or float(band.mean()) < 0.006:
+            crop = _normalize_line_crop(clean.crop((name_x0, yy0, name_x1, yy1)))
+            if crop is None:
                 continue
-            crops.append((yy0, clean.crop((x0, yy0, x1, yy1))))
+            row_specs.append({
+                "y0": yy0,
+                "y1": yy1,
+                "y": (yy0 + yy1) / 2,
+                "crop": crop,
+            })
 
-    # Normalize every handwritten-name line. The HTR model is a line
-    # recognizer, so giving it a clean single-name strip is the critical step.
-    normalized = []
+    # Merge accidental duplicate bands.
+    dedup = []
     last_y = -10_000
-    for y, crop in sorted(crops, key=lambda z: z[0]):
-        if y - last_y < max(10, h // 180) and normalized:
+    for spec in sorted(row_specs, key=lambda z: z["y"]):
+        if spec["y"] - last_y < max(12, h // 170) and dedup:
             continue
-        gray = ImageOps.autocontrast(crop.convert("L"), cutoff=1)
-        gray = ImageEnhance.Contrast(gray).enhance(1.35)
-        arr = np.asarray(gray, dtype=np.uint8)
-        ink = arr < min(225, max(90, _otsu(arr) + 18))
-        ys, xs = np.where(ink)
-        if xs.size:
-            bx0, bx1 = max(0, int(xs.min()) - 12), min(gray.width, int(xs.max()) + 13)
-            by0, by1 = max(0, int(ys.min()) - 7), min(gray.height, int(ys.max()) + 8)
-            gray = gray.crop((bx0, by0, bx1, by1))
-        if gray.width < 70 or gray.height < 16:
-            continue
-        target_h = 72
-        scale = target_h / max(gray.height, 1)
-        target_w = max(120, min(1500, int(gray.width * scale)))
-        gray = gray.resize((target_w, target_h), Image.Resampling.LANCZOS)
-        canvas = Image.new("L", (gray.width + 40, target_h + 20), 255)
-        canvas.paste(gray, (20, 10))
-        normalized.append(canvas.convert("RGB"))
-        last_y = y
-    return normalized[:80]
+        dedup.append(spec)
+        last_y = spec["y"]
+
+    return dedup[:80], {
+        "imageWidth": w,
+        "imageHeight": h,
+        "columns": [round(x / max(w, 1), 5) for x in vertical_rules],
+        "nameColumn": [
+            round(name_x0 / max(w, 1), 5),
+            round(name_x1 / max(w, 1), 5),
+        ],
+    }
 
 
 def _line_crops(image: Image.Image):
-    clean, dark = _prepare_page(image)
-    x0, x1 = _name_column_bounds(dark)
-    return _content_rows_in_name_column(clean, dark, x0, x1)
+    rows, layout = _ledger_rows(image)
+    return rows, layout
 
 
 _ARABIC_RE = re.compile(r"[\u0600-\u06FF]")
@@ -338,10 +377,13 @@ async def ocr(
     except Exception:
         raise HTTPException(400, "Unsupported image")
     model, charset, cfg, recognise_line = _load_model()
+    row_specs, layout = _line_crops(image)
     lines = []
-    for idx, crop in enumerate(_line_crops(image), start=1):
+    h = max(1, int(layout.get("imageHeight") or 1))
+    for idx, spec in enumerate(row_specs, start=1):
         try:
-            text = _clean_name(recognise_line(model, charset, crop))
+            raw_text = recognise_line(model, charset, spec["crop"])
+            text = _clean_name(raw_text)
         except Exception:
             continue
         if not text:
@@ -354,10 +396,14 @@ async def ocr(
             "name": text,
             "quality": q,
             "reviewNeeded": q < 68 or len([w for w in text.split() if len(w) > 1]) < 2,
+            "y": round(float(spec["y"]) / h, 5),
+            "y0": round(float(spec["y0"]) / h, 5),
+            "y1": round(float(spec["y1"]) / h, 5),
         })
     return {
         "engine": "arabic-htr-v2-name-column",
         "user": user.get("id"),
         "count": len(lines),
+        "layout": layout,
         "rows": lines,
     }
