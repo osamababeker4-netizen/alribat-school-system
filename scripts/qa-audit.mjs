@@ -31,7 +31,7 @@ has(main,'review.length?"لا توجد صفوف موثوقة للحفظ بعد.'
 has(main,'ocrVersion:"PP-OCRv5"','advanced Arabic OCR engine missing');
 has(main,'lang:"ar"','Arabic OCR language must be explicit');
 has(main,'_ocrSource:"paddle-ar-v5"','Paddle Arabic OCR results must be traceable');
-has(main,'tesseract-fallback','compatibility OCR fallback missing');
+has(main,'tesseract-offline-fallback','offline compatibility OCR path missing');
 has(main,'firstInstallment','first installment field missing');
 has(main,'secondInstallment','second installment field missing');
 has(main,'birthDate','birth date field missing');
