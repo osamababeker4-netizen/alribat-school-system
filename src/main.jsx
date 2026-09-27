@@ -50,7 +50,7 @@ function App(){
  const mutate=(fn,a,m,d)=>setDb(p=>{const n=fn(p);return{...n,audit:[audit(a,m,d,user.name),...(n.audit||[])].slice(0,1000)}});
  const notify=(title,message)=>setDb(p=>({...p,notifications:[{id:id("n"),title,message,at:new Date().toISOString(),read:false},...p.notifications].slice(0,100)}));
  const nav=MODS.filter(x=>allowed.includes(x[0]));
- return <div className="app"><aside className="sidebar"><div className="brand"><div className="logo originalSchoolLogo"><img src={ORIGINAL_LOGO_DATA} alt="شعار مدرسة الرباط الأصلي"/></div><div><b>مدرسة الرباط</b><span>الإدارة والمالية</span></div></div><nav>{nav.map(x=><button key={x[0]} className={active===x[0]?"active":""} onClick={()=>{setActive(x[0]);setSearch("")}}><i>{x[1]}</i><span>{x[0]}</span></button>)}</nav><div className="sideFoot ownershipMini"><span>الإصدار</span><b>Central v1.7.0</b><img className="miniSignature" src="./alribat-owner-signature.svg" alt="توقيع المالك"/><small>© 2026 Eng. Osama Ismail<br/>جميع الحقوق والملكية الفكرية محفوظة</small></div></aside><main><header><div className="headerTitle"><span className="mobileTitle">مدرسة الرباط</span><h2>{active}</h2><small>النظام المالي والإداري المركزي</small></div><div className="headerActions"><button className="bell" onClick={()=>setModal({type:"notes"})}>🔔{db.notifications.some(x=>!x.read)&&<em>{db.notifications.filter(x=>!x.read).length}</em>}</button><div className="user"><div className="avatar">{(user.name||"م")[0]}</div><div><b>{user.name}</b><span>{user.role}</span></div></div></div></header><div className="content">
+ return <div className="app"><aside className="sidebar"><div className="brand"><div className="logo originalSchoolLogo"><img src={ORIGINAL_LOGO_DATA} alt="شعار مدرسة الرباط الأصلي"/></div><div><b>مدرسة الرباط</b><span>الإدارة والمالية</span></div></div><nav>{nav.map(x=><button key={x[0]} className={active===x[0]?"active":""} onClick={()=>{setActive(x[0]);setSearch("")}}><i>{x[1]}</i><span>{x[0]}</span></button>)}</nav><div className="sideFoot ownershipMini"><span>الإصدار</span><b>Central v1.8.0</b><img className="miniSignature" src="./alribat-owner-signature.svg" alt="توقيع المالك"/><small>© 2026 Eng. Osama Ismail<br/>جميع الحقوق والملكية الفكرية محفوظة</small></div></aside><main><header><div className="headerTitle"><span className="mobileTitle">مدرسة الرباط</span><h2>{active}</h2><small>النظام المالي والإداري المركزي</small></div><div className="headerActions"><button className="bell" onClick={()=>setModal({type:"notes"})}>🔔{db.notifications.some(x=>!x.read)&&<em>{db.notifications.filter(x=>!x.read).length}</em>}</button><div className="user"><div className="avatar">{(user.name||"م")[0]}</div><div><b>{user.name}</b><span>{user.role}</span></div></div></div></header><div className="content">
  {active==="الرئيسية"&&<Dashboard db={db} go={setActive} user={user}/>}
  {active==="الطلاب"&&<Students db={db} search={search} setSearch={setSearch} mutate={mutate} setModal={setModal}/>}
  {active==="الرسوم والتحصيل"&&<Finance db={db} search={search} setSearch={setSearch} mutate={mutate} setModal={setModal} notify={notify}/>}
@@ -110,7 +110,105 @@ function Dashboard({db,go,user}){
  </>;
 }
 
-function Students({db,search,setSearch,mutate,setModal}){const rows=db.students.filter(x=>(x.name+" "+(x.grade||"")+" "+(x.parentPhone||"")).toLowerCase().includes(search.toLowerCase()));const del=x=>{if(db.fees.some(f=>f.studentId===x.id)||db.payments.some(p=>p.studentId===x.id)){alert("لا يمكن حذف طالب مرتبط بحركات مالية. غيّر حالته إلى منسحب.");return}if(confirm("تأكيد الحذف؟"))mutate(p=>({...p,students:p.students.filter(s=>s.id!==x.id)}),"حذف","الطلاب","حذف "+x.name)};return <section className="panel pagePanel"><Head title="الطلاب" desc="ملفات الطلاب وولي الأمر والحالة الدراسية." add="طالب" onAdd={()=>setModal({type:"student"})} search={search} setSearch={setSearch} extra={<button onClick={()=>csv("students.csv",db.students)}>تصدير</button>}/>{rows.length?<div className="tableWrap"><table><thead><tr><th>الاسم</th><th>الصف</th><th>الفصل</th><th>ولي الأمر</th><th>الهاتف</th><th>الحالة</th><th></th></tr></thead><tbody>{rows.map(x=><tr key={x.id}><td><b>{x.name}</b></td><td>{x.grade}</td><td>{x.className||"—"}</td><td>{x.parentName||"—"}</td><td>{x.parentPhone||"—"}</td><td><S tone={x.status==="نشط"?"ok":"warn"}>{x.status}</S></td><td className="actions"><button onClick={()=>mutate(p=>({...p,students:p.students.map(s=>s.id===x.id?{...s,status:s.status==="نشط"?"موقوف":"نشط"}:s)}),"تعديل","الطلاب","تغيير حالة "+x.name)}>تغيير الحالة</button><button className="danger" onClick={()=>del(x)}>حذف</button></td></tr>)}</tbody></table></div>:<Empty/>}</section>}
+
+const importKeyName=v=>String(v||"").normalize("NFKD").replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g,"").replace(/ـ/g,"").replace(/[أإآٱ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه").replace(/ؤ/g,"و").replace(/ئ/g,"ي").replace(/[^\u0621-\u064A0-9a-zA-Z]/g,"").toLowerCase();
+const westernDigits=v=>String(v??"").replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d));
+const importMoney=v=>{const n=Number(westernDigits(v).replace(/[٬,\s]/g,"").replace("٫","."));return Number.isFinite(n)?Math.max(0,n):0};
+const cleanImportText=v=>String(v??"").replace(/\s+/g," ").trim();
+const headerKey=v=>importKeyName(String(v||"").replace(/رسوم|الرسوم|مبلغ|قيمة|اجمالي|إجمالي/g,""));
+const IMPORT_HEADERS={
+ name:["الاسم","اسمالطالب","الطالب","الطالبه","student","studentname","name"],
+ registrationFee:["التسجيل","رسومتسجيل","registration","registrationfee"],
+ tuitionFee:["الدراسيه","الدراسه","رسومدراسيه","tuition","tuitionfee","schoolfee"],
+ remainingFee:["المتبقي","الباقي","الرصيد","متبقي","remaining","balance","outstanding"],
+ grade:["الصف","المرحله","grade","classlevel"],
+ className:["الفصل","الشعبه","class","section"]
+};
+function detectImportColumns(row){
+ const map={};row.forEach((v,i)=>{const h=headerKey(v);for(const[k,names]of Object.entries(IMPORT_HEADERS))if(names.some(x=>h===importKeyName(x)||h.includes(importKeyName(x))))map[k]=i});
+ return map;
+}
+function rowFromGrid(row,map){
+ const pick=k=>map[k]===undefined?"":row[map[k]];
+ return {name:cleanImportText(pick("name")),registrationFee:importMoney(pick("registrationFee")),tuitionFee:importMoney(pick("tuitionFee")),remainingFee:importMoney(pick("remainingFee")),grade:cleanImportText(pick("grade")),className:cleanImportText(pick("className"))};
+}
+function rowsFromGrid(grid){
+ if(!Array.isArray(grid)||!grid.length)return[];
+ let hi=-1,map={};
+ for(let i=0;i<Math.min(grid.length,12);i++){const m=detectImportColumns(grid[i]||[]);if(m.name!==undefined&&(m.registrationFee!==undefined||m.tuitionFee!==undefined||m.remainingFee!==undefined)){hi=i;map=m;break}}
+ if(hi>=0)return grid.slice(hi+1).map(r=>rowFromGrid(r,map)).filter(x=>x.name);
+ return[];
+}
+function rowsFromPlainText(text){
+ const lines=String(text||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean),out=[];
+ for(const raw of lines){
+  let line=westernDigits(raw).replace(/[|؛;]/g," ");
+  if(/الاسم|اسم الطالب|student name/i.test(line)&&/رسوم|متبقي|remaining|tuition/i.test(line))continue;
+  const matches=[...line.matchAll(/\d[\d,.٬٫]*/g)];
+  if(matches.length<2)continue;
+  const vals=matches.map(m=>importMoney(m[0])).filter(Number.isFinite);
+  const selected=matches.slice(-3),first=selected[0];
+  let name=cleanImportText(line.slice(0,first.index).replace(/^\s*\d+\s*[-.)ـ:]?\s*/,""));
+  if(!name){name=cleanImportText(line.replace(/\d[\d,.٬٫]*/g," ").replace(/^\s*[-.)ـ:]?\s*/,""))}
+  if(!name||name.length<2)continue;
+  out.push({name,registrationFee:vals.length>=3?vals[vals.length-3]:0,tuitionFee:vals.length>=2?vals[vals.length-2]:0,remainingFee:vals[vals.length-1]||0,grade:"",className:""});
+ }
+ return out;
+}
+function decorateStudentImport(rows,students){
+ const existing=new Map(students.map(x=>[importKeyName(x.name),x])),seen=new Set();
+ return rows.map((r,i)=>{const key=importKeyName(r.name),dupe=key&&seen.has(key),match=key?existing.get(key):null;if(key)seen.add(key);return{...r,_id:r._id||id("imp"),_row:i+1,_key:key,_duplicateFile:dupe,_existingId:match?.id||"",_status:dupe?"مكرر داخل الملف":match?"تحديث سجل موجود":"طالب جديد"}});
+}
+async function importExcelFile(file){
+ const XLSX=await import(/* @vite-ignore */"https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm");
+ const wb=XLSX.read(await file.arrayBuffer(),{type:"array"}),rows=[];
+ for(const sn of wb.SheetNames){const grid=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:""}),parsed=rowsFromGrid(grid);rows.push(...(parsed.length?parsed:rowsFromPlainText(grid.map(r=>r.join("\t")).join("\n"))))}
+ return rows;
+}
+async function importPdfFile(file,setProgress){
+ const pdfjs=await import(/* @vite-ignore */"https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs");
+ pdfjs.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
+ const doc=await pdfjs.getDocument({data:await file.arrayBuffer()}).promise;let text="";
+ for(let i=1;i<=doc.numPages;i++){setProgress("قراءة PDF — صفحة "+i+" من "+doc.numPages);const p=await doc.getPage(i),c=await p.getTextContent();text+="\n"+c.items.map(x=>x.str).join(" ")}
+ let rows=rowsFromPlainText(text);if(rows.length)return rows;
+ const{createWorker}=await import(/* @vite-ignore */"https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/+esm");
+ const worker=await createWorker("ara+eng");
+ try{for(let i=1;i<=Math.min(doc.numPages,12);i++){setProgress("التعرف الضوئي على PDF — صفحة "+i);const p=await doc.getPage(i),vp=p.getViewport({scale:2}),canvas=document.createElement("canvas");canvas.width=vp.width;canvas.height=vp.height;await p.render({canvasContext:canvas.getContext("2d"),viewport:vp}).promise;const r=await worker.recognize(canvas);text+="\n"+r.data.text}}finally{await worker.terminate()}
+ return rowsFromPlainText(text);
+}
+async function importImageFile(file,setProgress){
+ setProgress("قراءة الصورة والتعرف على الكتابة العربية...");
+ const{createWorker}=await import(/* @vite-ignore */"https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/+esm");
+ const worker=await createWorker("ara+eng");
+ try{const r=await worker.recognize(file);return rowsFromPlainText(r.data.text)}finally{await worker.terminate()}
+}
+async function readStudentImportFile(file,setProgress){
+ const n=file.name.toLowerCase(),t=file.type||"";
+ if(/\.(xlsx|xls)$/i.test(n))return importExcelFile(file);
+ if(/\.pdf$/i.test(n)||t==="application/pdf")return importPdfFile(file,setProgress);
+ if(t.startsWith("image/")||/\.(png|jpe?g|webp|bmp)$/i.test(n))return importImageFile(file,setProgress);
+ const text=await file.text();const delim=text.split(/\r?\n/).map(l=>l.split(/\t|,|;|\|/));const gridRows=rowsFromGrid(delim);return gridRows.length?gridRows:rowsFromPlainText(text);
+}
+
+function Students({db,search,setSearch,mutate,setModal}){const rows=db.students.filter(x=>(x.name+" "+(x.grade||"")+" "+(x.parentPhone||"")).toLowerCase().includes(search.toLowerCase()));const del=x=>{if(db.fees.some(f=>f.studentId===x.id)||db.payments.some(p=>p.studentId===x.id)){alert("لا يمكن حذف طالب مرتبط بحركات مالية. غيّر حالته إلى منسحب.");return}if(confirm("تأكيد الحذف؟"))mutate(p=>({...p,students:p.students.filter(st=>st.id!==x.id)}),"حذف","الطلاب","حذف "+x.name)};return <section className="panel pagePanel"><Head title="الطلاب" desc="ملفات الطلاب وبيانات الرسوم المستوردة، مع منع تكرار الاسم تلقائيًا." add="طالب" onAdd={()=>setModal({type:"student"})} search={search} setSearch={setSearch} extra={<><button className="primary" onClick={()=>setModal({type:"studentImport"})}>⇧ استيراد ذكي</button><button onClick={()=>csv("students.csv",db.students)}>تصدير</button></>}/>{rows.length?<div className="tableWrap"><table><thead><tr><th>الاسم</th><th>الصف</th><th>الفصل</th><th>رسوم التسجيل</th><th>الرسوم الدراسية</th><th>المتبقي</th><th>ولي الأمر</th><th>الهاتف</th><th>الحالة</th><th></th></tr></thead><tbody>{rows.map(x=><tr key={x.id}><td><b>{x.name}</b></td><td>{x.grade||"—"}</td><td>{x.className||"—"}</td><td>{money(x.registrationFee)}</td><td>{money(x.tuitionFee)}</td><td><b>{money(x.remainingFee)}</b></td><td>{x.parentName||"—"}</td><td>{x.parentPhone||"—"}</td><td><S tone={x.status==="نشط"?"ok":"warn"}>{x.status}</S></td><td className="actions"><button onClick={()=>mutate(p=>({...p,students:p.students.map(st=>st.id===x.id?{...st,status:st.status==="نشط"?"موقوف":"نشط"}:st)}),"تعديل","الطلاب","تغيير حالة "+x.name)}>تغيير الحالة</button><button className="danger" onClick={()=>del(x)}>حذف</button></td></tr>)}</tbody></table></div>:<Empty/>}</section>}
+
+function StudentImportModal({db,mutate,close}){
+ const[rows,setRows]=useState([]),[progress,setProgress]=useState(""),[error,setError]=useState(""),[fileName,setFileName]=useState("");
+ const inputRef=useRef();
+ const decorated=useMemo(()=>decorateStudentImport(rows,db.students),[rows,db.students]);
+ const valid=decorated.filter(x=>x.name&&!x._duplicateFile),created=valid.filter(x=>!x._existingId).length,updated=valid.filter(x=>x._existingId).length,duplicates=decorated.filter(x=>x._duplicateFile).length;
+ const loadFile=async file=>{if(!file)return;setFileName(file.name);setRows([]);setError("");setProgress("جاري تحليل الملف...");try{const parsed=await readStudentImportFile(file,setProgress);if(!parsed.length)throw new Error("لم أتمكن من استخراج صفوف طلاب تلقائيًا. جرّب صورة أوضح أو ملف Excel/CSV منظمًا.");setRows(parsed.map(x=>({...x,_id:id("imp")})));setProgress("")}catch(e){setProgress("");setError(e.message||"تعذر قراءة الملف")}};
+ const edit=(rid,k,v)=>setRows(r=>r.map(x=>x._id===rid?{...x,[k]:k==="name"||k==="grade"||k==="className"?v:importMoney(v)}:x));
+ const remove=rid=>setRows(r=>r.filter(x=>x._id!==rid));
+ const commit=()=>{if(!valid.length){alert("لا توجد صفوف صالحة للحفظ");return}mutate(p=>{let students=[...p.students],createdN=0,updatedN=0;const byName=new Map(students.map((x,i)=>[importKeyName(x.name),{x,i}]));for(const r of valid){const key=importKeyName(r.name);if(!key)continue;const found=byName.get(key),patch={name:cleanImportText(r.name),registrationFee:num(r.registrationFee),tuitionFee:num(r.tuitionFee),remainingFee:num(r.remainingFee),grade:r.grade||found?.x.grade||"",className:r.className||found?.x.className||"",importedAt:new Date().toISOString(),importSource:fileName};if(found){students[found.i]={...found.x,...patch};byName.set(key,{x:students[found.i],i:found.i});updatedN++}else{const st={id:id("stu"),status:"نشط",parentName:"",parentPhone:"",...patch};students.push(st);byName.set(key,{x:st,i:students.length-1});createdN++}}return{...p,students}},"استيراد","الطلاب","استيراد ذكي: "+created+" جديد، "+updated+" تحديث، "+duplicates+" مكرر تم تجاهله");alert("تم الاستيراد بدون تكرار الأسماء: "+created+" طالب جديد، "+updated+" سجل تم تحديثه، "+duplicates+" مكرر تم تجاهله.");close()};
+ return <Modal title="استيراد بيانات الطلاب — ذكي" close={close}><div className="studentImport">
+  <div className="importDrop" onClick={()=>inputRef.current?.click()}><b>📷 صورة دفتر / PDF / Excel / CSV / TXT</b><span>اختر الملف وسيتم استخراج الاسم ورسوم التسجيل والرسوم الدراسية والمتبقي تلقائيًا.</span><button className="primary">{fileName?"اختيار ملف آخر":"اختيار ملف"}</button><input ref={inputRef} hidden type="file" accept="image/*,.pdf,.xlsx,.xls,.csv,.txt,.tsv" onChange={e=>loadFile(e.target.files?.[0])}/></div>
+  {progress&&<div className="importProgress">⏳ {progress}</div>}{error&&<div className="importError">⚠️ {error}</div>}
+  {rows.length>0&&<><div className="importSummary"><span>جديد <b>{created}</b></span><span>تحديث موجود <b>{updated}</b></span><span>مكرر داخل الملف <b>{duplicates}</b></span><span>إجمالي مقروء <b>{decorated.length}</b></span></div>
+  <div className="tableWrap importPreview"><table><thead><tr><th>#</th><th>اسم الطالب</th><th>رسوم التسجيل</th><th>الرسوم الدراسية</th><th>المتبقي</th><th>الصف</th><th>الفصل</th><th>الحالة</th><th></th></tr></thead><tbody>{decorated.map((r,i)=><tr key={r._id} className={r._duplicateFile?"importDuplicate":r._existingId?"importExisting":""}><td>{i+1}</td><td><input value={r.name} onChange={e=>edit(r._id,"name",e.target.value)}/></td><td><input dir="ltr" type="number" min="0" value={r.registrationFee||""} onChange={e=>edit(r._id,"registrationFee",e.target.value)}/></td><td><input dir="ltr" type="number" min="0" value={r.tuitionFee||""} onChange={e=>edit(r._id,"tuitionFee",e.target.value)}/></td><td><input dir="ltr" type="number" min="0" value={r.remainingFee||""} onChange={e=>edit(r._id,"remainingFee",e.target.value)}/></td><td><input value={r.grade||""} onChange={e=>edit(r._id,"grade",e.target.value)}/></td><td><input value={r.className||""} onChange={e=>edit(r._id,"className",e.target.value)}/></td><td><S tone={r._duplicateFile?"bad":r._existingId?"warn":"ok"}>{r._status}</S></td><td><button className="danger" onClick={()=>remove(r._id)}>حذف</button></td></tr>)}</tbody></table></div>
+  <div className="importNote">لن يُنشأ اسم مكرر. الاسم الموجود مسبقًا يتم تحديث بياناته، والمكرر داخل نفس الملف يتم تجاهله تلقائيًا.</div><div className="modalActions"><button onClick={close}>إلغاء</button><button className="primary" onClick={commit}>اعتماد وحفظ {valid.length} صف</button></div></>}
+ </div></Modal>
+}
 
 function Finance({db,search,setSearch,mutate,setModal}){const[tab,setTab]=useState("fees");const rows=db.fees.filter(x=>(x.studentName+" "+x.type).toLowerCase().includes(search.toLowerCase()));return <section className="panel pagePanel"><Head title="الرسوم والتحصيل" desc="الرصيد يحسب من الإيصالات الفعلية ولا يمكن الدفع بأكثر من المستحق." add={tab==="fees"?"رسوم":"إيصال قبض"} onAdd={()=>setModal({type:tab==="fees"?"fee":"payment"})} search={search} setSearch={setSearch} extra={<><button className={tab==="fees"?"selected":""} onClick={()=>setTab("fees")}>الرسوم</button><button className={tab==="payments"?"selected":""} onClick={()=>setTab("payments")}>الإيصالات</button></>}/>{tab==="fees"?(rows.length?<div className="tableWrap"><table><thead><tr><th>الطالب</th><th>النوع</th><th>الإجمالي</th><th>المدفوع</th><th>الرصيد</th><th>الحالة</th></tr></thead><tbody>{rows.map(x=><tr key={x.id}><td><b>{x.studentName}</b></td><td>{x.type}</td><td>{money(x.amount)}</td><td>{money(paid(db,x.id))}</td><td>{money(balance(db,x))}</td><td><S tone={fstatus(db,x)==="مدفوع"?"ok":fstatus(db,x)==="غير مدفوع"?"bad":"warn"}>{fstatus(db,x)}</S></td></tr>)}</tbody></table></div>:<Empty/>):(db.payments.length?<div className="tableWrap"><table><thead><tr><th>الإيصال</th><th>الطالب</th><th>المبلغ</th><th>التاريخ</th><th>الطريقة</th><th></th></tr></thead><tbody>{[...db.payments].reverse().map(x=><tr key={x.id}><td><b>{x.receipt}</b></td><td>{x.studentName}</td><td>{money(x.amount)}</td><td>{x.date}</td><td>{x.method}</td><td><button onClick={()=>printReceipt(x,db.school)}>طباعة</button></td></tr>)}</tbody></table></div>:<Empty/>)}</section>}
 
@@ -257,7 +355,7 @@ function Settings({db,mutate}){
   <h3>الملكية الفكرية</h3>
   <p><b>© 2026 Eng. Osama Ismail — جميع الحقوق محفوظة.</b></p>
   <p className="muted">هذا النظام وتصميمه وبرمجته وتكامل قاعدة البيانات وسجل إصداراته موثق باسم المالك داخل المستودع.</p>
-  <img className="ownerSignature" src="./alribat-owner-signature.svg" alt="التوقيع المعتمد للمالك"/><small>التوقيع اليدوي المعتمد + التوقيع الإلكتروني: Eng. Osama Ismail • الإصدار v1.7.0 • 2026-09-26</small>
+  <img className="ownerSignature" src="./alribat-owner-signature.svg" alt="التوقيع المعتمد للمالك"/><small>التوقيع اليدوي المعتمد + التوقيع الإلكتروني: Eng. Osama Ismail • الإصدار v1.8.0 • 2026-09-26</small>
   <div className="buttonRow"><button onClick={()=>window.open("https://github.com/osamababeker4-netizen/alribat-school-system/blob/main/COPYRIGHT.md","_blank")}>عرض إثبات الملكية</button></div>
 </div>
 </div></section>
@@ -265,7 +363,7 @@ function Settings({db,mutate}){
 
 function Users({db,mutate,setModal,user,uidx,setUidx,fileRef,setDb}){const admin=["مدير النظام","مدير المدرسة"].includes(user.role);return <section className="panel pagePanel"><Head title="المستخدمون والصلاحيات" desc="الأدوار، النسخ الاحتياطي، وسجل التدقيق." add={admin?"مستخدم":null} onAdd={()=>setModal({type:"user"})}/><div className="settingsGrid"><div className="settingCard"><h3>الحساب الحالي</h3><select value={uidx} onChange={e=>setUidx(e.target.value)}>{db.users.filter(x=>x.active).map(x=><option key={x.id} value={x.id}>{x.name+" — "+x.role}</option>)}</select><small>تبديل محلي للاختبار. الدخول الحقيقي يحتاج Auth مركزي.</small></div><div className="settingCard"><h3>النسخ الاحتياطي</h3><div className="buttonRow"><button onClick={()=>backup(db)}>تنزيل JSON</button><button onClick={()=>fileRef.current.click()}>استيراد</button></div></div><div className="settingCard"><h3>تصفير البيانات المحلية</h3><button className="danger" onClick={()=>confirm("سيتم حذف البيانات المحلية من هذا الجهاز فقط. متابعة؟")&&setDb(clear())}>تصفير</button></div></div><div className="tableWrap"><table><thead><tr><th>الاسم</th><th>البريد</th><th>الجوال</th><th>الدور</th><th>الحالة</th><th></th></tr></thead><tbody>{db.users.map(x=><tr key={x.id}><td><b>{x.name}</b></td><td>{x.email||"—"}</td><td>{x.phone||"—"}</td><td>{x.role}</td><td><S tone={x.active?"ok":"bad"}>{x.active?"نشط":"موقوف"}</S></td><td>{admin&&x.id!=="u-admin"&&<button onClick={async()=>{try{await setSchoolUserActive(x.authId,!x.active);mutate(p=>({...p,users:p.users.map(u=>u.id===x.id?{...u,active:!u.active}:u)}),"تعديل","المستخدمون","تغيير حالة "+x.name)}catch(e){alert(e.message||"تعذر تحديث حالة المستخدم")}}}>{x.active?"إيقاف":"تفعيل"}</button>}</td></tr>)}</tbody></table></div><h3>سجل التدقيق</h3>{db.audit.length?<div className="auditList">{db.audit.slice(0,50).map(x=><div key={x.id}><b>{x.action+" · "+x.module}</b><span>{x.description}</span><small>{x.user+" — "+new Date(x.at).toLocaleString("ar")}</small></div>)}</div>:<Empty text="لا توجد عمليات مسجلة"/>}</section>}
 
-function Dialogs({modal,setModal,db,mutate,notify,user}){if(!modal)return null;const close=()=>setModal(null);if(modal.type==="notes")return <Modal title="التنبيهات" close={close}>{db.notifications.length?<div className="auditList">{db.notifications.map(x=><div key={x.id}><b>{x.title}</b><span>{x.message}</span><small>{new Date(x.at).toLocaleString("ar")}</small></div>)}</div>:<Empty text="لا توجد تنبيهات"/>}<div className="modalActions"><button onClick={()=>{setModal(null)}}>إغلاق</button></div></Modal>;return <FormDialog type={modal.type} close={close} db={db} mutate={mutate} notify={notify} user={user}/>}
+function Dialogs({modal,setModal,db,mutate,notify,user}){if(!modal)return null;const close=()=>setModal(null);if(modal.type==="studentImport")return <StudentImportModal db={db} mutate={mutate} close={close}/>;if(modal.type==="notes")return <Modal title="التنبيهات" close={close}>{db.notifications.length?<div className="auditList">{db.notifications.map(x=><div key={x.id}><b>{x.title}</b><span>{x.message}</span><small>{new Date(x.at).toLocaleString("ar")}</small></div>)}</div>:<Empty text="لا توجد تنبيهات"/>}<div className="modalActions"><button onClick={()=>{setModal(null)}}>إغلاق</button></div></Modal>;return <FormDialog type={modal.type} close={close} db={db} mutate={mutate} notify={notify} user={user}/>}
 
 function FormDialog({type,close,db,mutate,notify,user}){const init={student:{name:"",grade:"",className:"",parentName:"",parentPhone:""},fee:{studentId:"",type:"رسوم دراسية",amount:"",dueDate:today()},payment:{feeId:"",amount:"",date:today(),method:"نقدي"},expense:{title:"",category:"أخرى",amount:"",date:today(),payee:""},staff:{name:"",role:"معلم",phone:"",salary:"",hireDate:today()},item:{name:"",sku:"",category:"",unit:"قطعة",quantity:"0",reorderLevel:"0",unitCost:"0"},move:{itemId:"",kind:"صرف",quantity:"",date:today(),recipient:""},request:{title:"",department:"",priority:"عادية",details:""},user:{name:"",email:"",phone:"",role:"مشرف/معلم"}}[type]||{};const[f,setF]=useState(init);const set=(k,v)=>setF({...f,[k]:v});const title={student:"إضافة طالب",fee:"إضافة رسوم",payment:"إيصال قبض",expense:"إضافة مصروف",staff:"إضافة موظف",item:"إضافة صنف",move:"حركة مخزون",request:"طلب جديد",user:"إضافة مستخدم"}[type];
  const submit=async e=>{e.preventDefault();
