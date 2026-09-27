@@ -289,7 +289,7 @@ async function sourceToUploadBlob(source){
  if(source instanceof HTMLCanvasElement)return await new Promise((resolve,reject)=>source.toBlob(b=>b?resolve(b):reject(new Error("تعذر تجهيز الصورة")),"image/jpeg",.92));
  throw new Error("مصدر الصورة غير مدعوم");
 }
-async function htrServiceHealth(timeoutMs=7000){
+async function htrServiceHealth(timeoutMs=12000){
  if(!HANDWRITING_OCR_URL)return null;
  const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),timeoutMs);
  try{
@@ -298,42 +298,50 @@ async function htrServiceHealth(timeoutMs=7000){
   return await res.json().catch(()=>null);
  }catch{return null}finally{clearTimeout(timer)}
 }
-async function recognizeArabicHandwriting(source,setProgress,label="الصورة"){
- if(!HANDWRITING_OCR_URL||!centralEnabled)return[];
- const session=await getSession();
- if(!session?.access_token)return[];
-
- setProgress("التحقق من محرك قراءة الخط العربي...");
- const health=await htrServiceHealth(7000);
- if(!health?.ok){
-  // Wake a sleeping free Render instance in the background, but never leave
-  // the user staring at a frozen import dialog.
-  fetch(HANDWRITING_OCR_URL+"/health",{cache:"no-store"}).catch(()=>{});
-  throw new Error("محرك الخط العربي قيد الإحماء");
+const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function waitForHtrService(setProgress){
+ for(let attempt=1;attempt<=4;attempt++){
+  setProgress(attempt===1?"التحقق من محرك الخط العربي...":"إيقاظ محرك الخط العربي — المحاولة "+attempt+" من 4...");
+  const health=await htrServiceHealth(attempt===1?12000:18000);
+  if(health?.ok)return health;
+  if(attempt<4)await wait(2500);
  }
+ throw new Error("تعذر الوصول إلى محرك الخط العربي المتخصص. لم يتم استخدام OCR البديل حتى لا تظهر أسماء خاطئة.");
+}
+async function recognizeArabicHandwriting(source,setProgress,label="الصورة"){
+ if(!HANDWRITING_OCR_URL)throw new Error("محرك الخط العربي غير مربوط بالنظام.");
+ if(!centralEnabled)throw new Error("يلزم الاتصال بالنظام المركزي لتشغيل قراءة الخط العربي.");
+ const session=await getSession();
+ if(!session?.access_token)throw new Error("انتهت جلسة الدخول. أعد تسجيل الدخول ثم جرّب القراءة.");
 
+ const health=await waitForHtrService(setProgress);
  const blob=await sourceToUploadBlob(source);
  const form=new FormData();
  form.append("file",blob,blob.name||"notebook.jpg");
 
  const ctrl=new AbortController();
- const timeoutMs=health.modelReady?35000:20000;
+ // First use can include loading the handwriting model on a sleeping Render
+ // instance. Accuracy is more important than silently falling back to a weak
+ // browser OCR, so allow enough time for the specialised reader to finish.
+ const timeoutMs=health.modelReady?120000:210000;
  const timer=setTimeout(()=>ctrl.abort(),timeoutMs);
- const p1=setTimeout(()=>setProgress(health.modelReady?"قراءة الأسماء العربية من عمود الاسم...":"تحميل نموذج الخط العربي لأول استخدام..."),6000);
- const p2=setTimeout(()=>setProgress("معالجة السطور وربط كل اسم بصفه — الرجاء الانتظار قليلًا..."),18000);
- const p3=setTimeout(()=>setProgress("القراءة المتخصصة تأخذ وقتًا أطول من المعتاد؛ سيتم التحويل تلقائيًا للمحرك الاحتياطي إن لزم."),35000);
+ const p1=setTimeout(()=>setProgress(health.modelReady?"قراءة الأسماء العربية من عمود الاسم...":"تحميل نموذج الخط العربي لأول استخدام — لا تغلق النافذة..."),6000);
+ const p2=setTimeout(()=>setProgress("تحليل سطور الدفتر وقص كل اسم منفصلًا..."),18000);
+ const p3=setTimeout(()=>setProgress("التعرف على الأسماء وربطها بصفوف الدفتر؛ هذه المرحلة قد تستغرق قليلًا في أول مرة..."),45000);
+ const p4=setTimeout(()=>setProgress("المحرك المتخصص ما زال يعمل بدقة عالية — لن يتم استبداله بنتيجة OCR ضعيفة."),90000);
 
  try{
-  setProgress(health.modelReady?"قراءة الخط العربي اليدوي — "+label+"...":"تجهيز محرك الخط العربي — "+label+"...");
+  setProgress(health.modelReady?"قراءة الخط العربي اليدوي المتخصص — "+label+"...":"تجهيز محرك الخط العربي المتخصص — "+label+"...");
   const res=await fetch(HANDWRITING_OCR_URL+"/ocr",{
    method:"POST",
    headers:{authorization:"Bearer "+session.access_token},
    body:form,
-   signal:ctrl.signal
+   signal:ctrl.signal,
+   cache:"no-store"
   });
   let data={};try{data=await res.json()}catch{}
   if(!res.ok)throw new Error(data?.detail||"تعذر تشغيل محرك الخط اليدوي");
-  return (data.rows||[]).map((r,i)=>({
+  const rows=(data.rows||[]).map((r,i)=>({
    name:cleanArabicNameCandidate(r.name||""),
    birthDate:"",studentPhone:"",
    registrationFee:0,tuitionFee:0,firstInstallment:0,secondInstallment:0,remainingFee:0,
@@ -341,17 +349,20 @@ async function recognizeArabicHandwriting(source,setProgress,label="الصورة
    _ocrConfidence:Number(r.quality||0),_ocrScore:Number(r.quality||0),
    _ocrReason:r.reviewNeeded?"قراءة خط يدوي تحتاج مراجعة":"",
    _reviewNeeded:Boolean(r.reviewNeeded),
-   _ocrSource:"arabic-htr-v2",
+   _ocrSource:"arabic-htr-v2.1",
+   _ocrEngine:String(data.engine||"Arabic HTR"),
    _htrRow:Number(r.row||i+1),
    _y:Number(r.y||0),
    _rowBounds:[Number(r.y0||0),Number(r.y1||0)],
    _htrLayout:data.layout||{}
   })).filter(r=>r.name);
+  if(!rows.length)throw new Error("لم يستطع محرك الخط العربي استخراج أسماء موثوقة من هذه الصورة. لم يتم عرض قراءة بديلة خاطئة.");
+  return rows;
  }catch(e){
-  if(e?.name==="AbortError")throw new Error("انتهت مهلة محرك الخط العربي؛ تم التحويل تلقائيًا للمحرك الاحتياطي");
+  if(e?.name==="AbortError")throw new Error("استغرقت القراءة المتخصصة وقتًا أطول من الحد المسموح. لم يتم استخدام OCR البديل حفاظًا على صحة الأسماء.");
   throw e;
  }finally{
-  clearTimeout(timer);clearTimeout(p1);clearTimeout(p2);clearTimeout(p3);
+  clearTimeout(timer);clearTimeout(p1);clearTimeout(p2);clearTimeout(p3);clearTimeout(p4);
  }
 }
 
@@ -670,52 +681,35 @@ function scoreOcrResult(rows,confidence){
  return good*120+avg+Math.min(100,confidence);
 }
 async function recognizeStudentSource(source,setProgress,label="الصورة"){
- setProgress("بدء القراءة المتوازية: الأسماء العربية + تفاصيل الصف...");
- const htrPromise=recognizeArabicHandwriting(source,setProgress,label)
-   .then(rows=>({rows,error:null}))
-   .catch(error=>({rows:[],error}));
+ // Start table/details OCR in parallel, but HTR is authoritative for names.
+ // We never race it against a 4.5-second timer and never replace handwritten
+ // names with Paddle/Tesseract guesses.
  const paddlePromise=recognizeWithPaddle(source,setProgress,label)
    .then(pack=>({pack,error:null}))
    .catch(error=>({pack:null,error}));
 
- // Run both engines together. The browser-side table OCR normally finishes
- // first; after that we only give HTR a short grace period, never a long freeze.
- const paddleResult=await paddlePromise;
- const htrResult=await Promise.race([
-  htrPromise,
-  new Promise(resolve=>setTimeout(()=>resolve({rows:[],error:new Error("HTR still warming")}),4500))
- ]);
-
- if(htrResult.rows?.length){
-  const layout=htrResult.rows[0]?._htrLayout||{};
+ if(HANDWRITING_OCR_URL&&centralEnabled){
+  const htrRows=await recognizeArabicHandwriting(source,setProgress,label);
+  const paddleResult=await paddlePromise;
   if(paddleResult.pack?.items?.length){
    setProgress("ربط الاسم وتاريخ الميلاد والجوال والرسوم بنفس الصف...");
-   return mergeLedgerDetails(htrResult.rows,paddleResult.pack.items,layout);
+   const layout=htrRows[0]?._htrLayout||{};
+   return mergeLedgerDetails(htrRows,paddleResult.pack.items,layout);
   }
-  return htrResult.rows;
+  return htrRows;
  }
 
- if(paddleResult.pack?.rows?.length){
-  if(htrResult.error)console.warn("Arabic HTR deferred/fallback",htrResult.error);
-  setProgress("تمت القراءة بالمحرك السريع؛ محرك الخط اليدوي لم يؤخر النتيجة.");
-  return paddleResult.pack.rows;
- }
+ // Compatibility path only when the specialised handwriting service is not
+ // configured at all (for example, an offline/local development copy).
+ const paddleResult=await paddlePromise;
+ if(paddleResult.pack?.rows?.length)return paddleResult.pack.rows;
 
- // Last-resort compatibility fallback if both modern engines fail.
  const worker=await getStudentOcrWorker(setProgress);
- setProgress("تشغيل القراءة الاحتياطية...");
+ setProgress("تشغيل OCR المحلي الاحتياطي...");
  const contrast=await preprocessStudentImage(source,"contrast");
  await worker.setParameters({tessedit_pageseg_mode:"6"});
- let first=await worker.recognize(contrast),conf1=Number(first.data?.confidence||0);
- let rows1=rowsFromPlainText(first.data?.text||"",{confidence:conf1,source:"tesseract-fallback"});
- if(rows1.filter(r=>!r._reviewNeeded).length<Math.max(2,Math.ceil(rows1.length*.65))||conf1<58){
-  const binary=await preprocessStudentImage(source,"binary");
-  await worker.setParameters({tessedit_pageseg_mode:"11"});
-  const second=await worker.recognize(binary),conf2=Number(second.data?.confidence||0);
-  const rows2=rowsFromPlainText(second.data?.text||"",{confidence:conf2,source:"tesseract-accurate-fallback"});
-  if(scoreOcrResult(rows2,conf2)>scoreOcrResult(rows1,conf1))rows1=rows2;
- }
- return rows1;
+ const first=await worker.recognize(contrast),conf1=Number(first.data?.confidence||0);
+ return rowsFromPlainText(first.data?.text||"",{confidence:conf1,source:"tesseract-offline-fallback"});
 }
 
 async function importPdfFile(file,setProgress){
