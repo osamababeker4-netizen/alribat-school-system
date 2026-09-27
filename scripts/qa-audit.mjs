@@ -50,6 +50,9 @@ has(main,'max={today()}','student attendance must block future dates');
 has(main,'رمز الصنف مستخدم بالفعل','inventory duplicate SKU protection missing');
 has(main,'centralEnabled?<><b>{user.name}</b>','production account switch hardening missing');
 has(main,'CORE_FEE_FIELDS','core registration/tuition fee mapping missing');
+has(main,'كل حساب مرتبطًا بموظف واحد فقط','staff account uniqueness guard missing');
+has(main,'رقم الجوال مستخدم في سجل موظف آخر','staff phone uniqueness guard missing');
+
 has(main,'SCHOOL_TZ="Africa/Khartoum"','school timezone must be explicit');
 has(main,'recordStaffGeofenceEvent(kind==="in"?"enter":"exit"','browser geofence must use secure server RPC');
 ok(!main.includes('function autoAttendanceWrite('),"browser geofence must not write attendance locally");
