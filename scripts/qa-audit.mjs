@@ -33,8 +33,11 @@ has(main,'const openNotes=()=>','notification bell must mark/read via one contro
 has(main,'className="backNav"','back navigation must be wired');
 has(main,'x.authId!==db.central?.userId','current authenticated account must not be disabled from UI');
 
-for(const fn of ["inviteSchoolUser","setSchoolUserActive","updateMyPhone","subscribeCentralChanges","queueCentralSave"]){
-  has(central,"export "+(fn==="queueCentralSave"?"function ":"async function ")+fn, "central function missing: "+fn);
+for(const fn of ["inviteSchoolUser","setSchoolUserActive","updateMyPhone"]){
+  has(central,"export async function "+fn, "central function missing: "+fn);
+}
+for(const fn of ["subscribeCentralChanges","queueCentralSave"]){
+  has(central,"export function "+fn, "central function missing: "+fn);
 }
 for(const fn of ["csv","backup","restore"]){
   has(store,fn,"store utility missing: "+fn);
