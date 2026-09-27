@@ -711,3 +711,5 @@ table tbody tr:hover td{background:#fff8e8!important}
 .auditRetentionSettings select{max-width:260px}
 .staffAttendancePage .geoFenceBanner.ready:after{content:"تلقائي";display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;background:#e9f4df;color:#4d6f33;font-size:11px;font-weight:800}
 @media(max-width:760px){.staffAttendancePage .geoFenceBanner.ready:after{align-self:flex-start}}
+
+.linkedAccount{display:block;margin-top:4px;color:#4e6c36;font-size:11px;font-weight:700}
