@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.AlRibatAttendance" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/ribat_gold</item>
+        <item name="colorPrimaryVariant">@color/ribat_gold_dark</item>
+        <item name="colorOnPrimary">@color/ribat_black</item>
+        <item name="android:statusBarColor">@color/ribat_black</item>
+        <item name="android:navigationBarColor">@color/ribat_black</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
