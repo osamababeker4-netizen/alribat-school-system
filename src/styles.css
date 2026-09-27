@@ -671,3 +671,15 @@ table tbody tr:hover td{background:#fff8e8!important}
  body.report-print-mode .officialDocFooter{border-top-color:#8f6208!important;color:#66583b!important}
  body.report-print-mode .officialDocFooter b{color:#6f4c08!important}
 }
+
+/* STAFF GEOFENCE v1.7.0 */
+.geoFenceBanner{
+ display:flex;align-items:center;justify-content:space-between;gap:16px;margin:14px 0 18px;padding:14px 16px;
+ border-radius:16px;border:1px solid #d7bc74;background:#fff9e9;box-shadow:0 10px 24px #8f62080d
+}
+.geoFenceBanner>div{display:grid;gap:4px}.geoFenceBanner b{color:#6f4c08}.geoFenceBanner span,.geoFenceBanner small{color:#786b4e}
+.geoFenceBanner.ready{background:#f6f8ed;border-color:#b9ca8a}.geoFenceBanner.ready b{color:#486829}
+.geoFenceBanner.blocked{background:#fff3e8;border-color:#e4b291}.geoFenceBanner.blocked b{color:#a04d2c}
+.geoSettings{display:grid;gap:12px}.geoSettingsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.geoBlockedText{color:#a04d2c!important;font-weight:700}.geoMeta{display:block;margin-top:3px;color:#786b4e}.geoOk{display:inline-flex;align-items:center;padding:5px 8px;border-radius:999px;background:#eef5e8;color:#4e6c36;font-size:11px;font-weight:700}
+@media(max-width:760px){.geoFenceBanner{align-items:flex-start;flex-direction:column}.geoSettingsGrid{grid-template-columns:1fr}}
