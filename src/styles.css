@@ -16,7 +16,7 @@
 .logo{overflow:hidden;background:#fff!important;padding:3px}
 .loginLogo{overflow:hidden;background:#fff!important;padding:3px}
 .hero{position:relative;overflow:hidden}
-.hero:after{content:"";position:absolute;inset:auto 24px -42px auto;width:190px;height:190px;background:url("./alribat-seal.svg") center/contain no-repeat;opacity:.08;pointer-events:none}
+.hero:after{content:"";position:absolute;inset:auto 24px -42px auto;width:190px;height:190px;background:url("/alribat-seal.svg") center/contain no-repeat;opacity:.08;pointer-events:none}
 .printBrand{display:none}
 @media print{
  @page{size:A4;margin:30mm 14mm 24mm}
@@ -37,8 +37,8 @@
 }
 
 .content{position:relative;isolation:isolate}
-.content:before{content:"";position:fixed;left:50%;top:54%;transform:translate(-50%,-50%);width:min(46vw,520px);height:min(46vw,520px);background:url("./alribat-seal.svg") center/contain no-repeat;opacity:.026;z-index:-1;pointer-events:none}
-.loginPage:after{content:"";position:absolute;right:-90px;bottom:-90px;width:430px;height:430px;background:url("./alribat-seal.svg") center/contain no-repeat;opacity:.035;pointer-events:none}
+.content:before{content:"";position:fixed;left:50%;top:54%;transform:translate(-50%,-50%);width:min(46vw,520px);height:min(46vw,520px);background:url("/alribat-seal.svg") center/contain no-repeat;opacity:.026;z-index:-1;pointer-events:none}
+.loginPage:after{content:"";position:absolute;right:-90px;bottom:-90px;width:430px;height:430px;background:url("/alribat-seal.svg") center/contain no-repeat;opacity:.035;pointer-events:none}
 .centralBadge.sync{background:#fff7e3;color:#7a5b16;border-color:#ead38d}
 .centralBadge.error{background:#fff0ee;color:#9a3d31;border-color:#e5b7af}
 @media(max-width:680px){.content:before{width:78vw;height:78vw;opacity:.02}}
@@ -218,7 +218,7 @@ header{
  min-height:170px;padding:28px 30px;border-radius:26px;
  background:
  linear-gradient(115deg,#ffffffed,#ffffffd9),
- url("./alribat-seal.svg") left 4% center/150px no-repeat;
+ url("/alribat-seal.svg") left 4% center/150px no-repeat;
  border:1px solid #d9e4ef;box-shadow:0 18px 44px #10395e10;overflow:hidden
 }
 .dashHero:before{
@@ -255,7 +255,7 @@ header{
 .noticeDot{color:#d7a63f;font-size:14px}.noticeRow b,.noticeRow small{display:block}.noticeRow b{font-size:13px;color:#183e62}.noticeRow small{font-size:11px;color:#7a8794;margin-top:3px}
 .modernQuick{grid-template-columns:1fr 1fr!important}.modernQuick button{background:#f8fbff!important;border-color:#dce7f1!important;color:#0b3a69!important;font-weight:700}
 .quotePanel{display:grid;place-items:center;text-align:center;align-content:center;gap:7px;background:
- linear-gradient(135deg,#ffffffed,#f9fbfeee),url("./alribat-seal.svg") left -15px bottom -25px/130px no-repeat!important}
+ linear-gradient(135deg,#ffffffed,#f9fbfeee),url("/alribat-seal.svg") left -15px bottom -25px/130px no-repeat!important}
 .quotePanel span{color:#b18a2e;font-size:12px}.quotePanel b{font-size:19px;color:#0b3a69}.quotePanel small{color:#73808d}
 @media(max-width:1050px){.dashMetrics{grid-template-columns:1fr 1fr!important}.dashboardGrid{grid-template-columns:1fr}.opsGrid{grid-template-columns:1fr 1fr}}
 @media(max-width:680px){
@@ -269,7 +269,7 @@ header{
  radial-gradient(circle at 12% 90%,#d9b14f33,transparent 30%),
  radial-gradient(circle at 90% 10%,#0b4c8726,transparent 32%)!important
 }
-.loginPage:before{content:"";position:absolute;inset:0;background:url("./alribat-seal.svg") right 6% bottom 8%/420px no-repeat;opacity:.025;pointer-events:none}
+.loginPage:before{content:"";position:absolute;inset:0;background:url("/alribat-seal.svg") right 6% bottom 8%/420px no-repeat;opacity:.025;pointer-events:none}
 .loginCard{
  width:min(500px,94vw)!important;border-radius:30px!important;padding:30px!important;
  border:1px solid #cfddea!important;box-shadow:0 34px 90px #0b3a6922!important;background:#fffffff2!important
@@ -346,7 +346,7 @@ header{backdrop-filter:blur(16px) saturate(1.18)!important}
  background:
   radial-gradient(circle at 92% 0%,#d6a8432d,transparent 29%),
   linear-gradient(115deg,#ffffffef,#f6faffea),
-  url("./alribat-seal.svg") left 4% center/150px no-repeat!important
+  url("/alribat-seal.svg") left 4% center/150px no-repeat!important
 }
 .dashHero{animation:ribatReveal .48s ease both}
 .content>.panel,.content>.dashHero,.content>.cards,.content>.dashboardGrid{animation:ribatReveal .42s ease both}
