@@ -198,55 +198,210 @@ function rowsFromGrid(grid){
  if(hi>=0)return grid.slice(hi+1).map(r=>rowFromGrid(r,map)).filter(x=>x.name);
  return[];
 }
-function rowsFromPlainText(text){
+
+const OCR_JUNK_WORDS=new Set(["الاسم","اسم","الطالب","الطالبه","الطالبة","طلاب","طالب","رسوم","التسجيل","الدراسيه","الدراسية","الدراسه","الدراسة","المتبقي","الباقي","الرصيد","جنيه","المبلغ","القسط","الاول","الأول","اجمالي","إجمالي","الصف","الفصل","رقم"]);
+function cleanArabicNameCandidate(raw){
+ const noMarks=String(raw||"")
+  .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g,"")
+  .replace(/[أإآٱ]/g,"ا")
+  .replace(/ى/g,"ي")
+  .replace(/ـ/g," ");
+ const onlyArabic=noMarks
+  .replace(/[A-Za-z]/g," ")
+  .replace(/[0-9٠-٩۰-۹]/g," ")
+  .replace(/[^\u0621-\u064A\u066E-\u06D3\s-]/g," ")
+  .replace(/\s+/g," ")
+  .trim();
+ return onlyArabic.split(" ").filter(w=>w.length>1&&!OCR_JUNK_WORDS.has(w)).join(" ").trim();
+}
+function studentNameAssessment(raw,ocrConfidence=100){
+ const source=cleanImportText(raw),cleaned=cleanArabicNameCandidate(source);
+ const arabic=(source.match(/[\u0621-\u064A\u066E-\u06D3]/g)||[]).length;
+ const latin=(source.match(/[A-Za-z]/g)||[]).length;
+ const letters=arabic+latin;
+ const ratio=letters?arabic/letters:0;
+ const words=cleaned.split(/\s+/).filter(Boolean);
+ const headerLike=/اسم\s*الطالب|رسوم|متبقي|الرصيد|المبلغ|التسجيل|الدراسي|student|tuition|remaining/i.test(source);
+ const conf=Math.max(0,Math.min(100,Number(ocrConfidence)||0));
+ let score=Math.round(conf*.45+ratio*35+Math.min(words.length,4)*5);
+ if(words.length<2)score-=25;
+ if(arabic<5)score-=25;
+ if(headerLike)score-=35;
+ if(latin>2)score-=20;
+ score=Math.max(0,Math.min(100,score));
+ const valid=words.length>=2&&arabic>=5&&ratio>=.78&&!headerLike&&score>=62;
+ return{valid,cleaned:cleaned||source,score,ratio,words,reason:valid?"":headerLike?"عنوان/حقل وليس اسم طالب":latin>2?"النص يحتوي أحرفًا لاتينية غير متوقعة":words.length<2?"الاسم غير مكتمل":arabic<5?"الأحرف العربية غير كافية":"ثقة القراءة منخفضة"};
+}
+function rowsFromPlainText(text,meta={}){
  const lines=String(text||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean),out=[];
+ const confidence=Number(meta.confidence??100);
  for(const raw of lines){
-  let line=westernDigits(raw).replace(/[|؛;]/g," ");
+  let line=westernDigits(raw).replace(/[|؛;]/g," ").replace(/^\s*\d+\s*[-.)ـ:]?\s*/,"").trim();
+  if(!line)continue;
   if(/الاسم|اسم الطالب|student name/i.test(line)&&/رسوم|متبقي|remaining|tuition/i.test(line))continue;
   const matches=[...line.matchAll(/\d[\d,.٬٫]*/g)];
-  if(matches.length<2)continue;
   const vals=matches.map(m=>importMoney(m[0])).filter(Number.isFinite);
-  const selected=matches.slice(-3),first=selected[0];
-  let name=cleanImportText(line.slice(0,first.index).replace(/^\s*\d+\s*[-.)ـ:]?\s*/,""));
-  if(!name){name=cleanImportText(line.replace(/\d[\d,.٬٫]*/g," ").replace(/^\s*[-.)ـ:]?\s*/,""))}
-  if(!name||name.length<2)continue;
-  out.push({name,registrationFee:vals.length>=3?vals[vals.length-3]:0,tuitionFee:vals.length>=2?vals[vals.length-2]:0,remainingFee:vals[vals.length-1]||0,grade:"",className:""});
+  const name=cleanArabicNameCandidate(line);
+  const check=studentNameAssessment(name,confidence);
+  if(!name||name.length<3)continue;
+  out.push({
+   name,
+   registrationFee:vals.length>=3?vals[vals.length-3]:0,
+   tuitionFee:vals.length>=2?vals[vals.length-2]:0,
+   remainingFee:vals.length>=1?vals[vals.length-1]:0,
+   grade:"",
+   className:"",
+   _ocrConfidence:confidence,
+   _ocrScore:check.score,
+   _ocrReason:check.reason,
+   _reviewNeeded:!check.valid,
+   _ocrSource:meta.source||"text"
+  });
  }
  return out;
 }
 function decorateStudentImport(rows,students){
  const existing=new Map(students.map(x=>[importKeyName(x.name),x])),seen=new Set();
- return rows.map((r,i)=>{const key=importKeyName(r.name),dupe=key&&seen.has(key),match=key?existing.get(key):null;if(key)seen.add(key);return{...r,_id:r._id||id("imp"),_row:i+1,_key:key,_duplicateFile:dupe,_existingId:match?.id||"",_status:dupe?"مكرر داخل الملف":match?"تحديث سجل موجود":"طالب جديد"}});
+ return rows.map((r,i)=>{
+  const key=importKeyName(r.name),dupe=key&&seen.has(key),match=key?existing.get(key):null;
+  if(key)seen.add(key);
+  const a=studentNameAssessment(r.name,r._manualEdited?100:(r._ocrConfidence??100));
+  return{...r,_id:r._id||id("imp"),_row:i+1,_key:key,_duplicateFile:dupe,_existingId:match?.id||"",_reviewNeeded:r._manualEdited?!a.valid:(!a.valid||r._reviewNeeded),_ocrScore:r._manualEdited?a.score:(r._ocrScore??a.score),_ocrReason:r._manualEdited?a.reason:(r._ocrReason||a.reason),_status:dupe?"مكرر داخل الملف":(!a.valid||(!r._manualEdited&&r._reviewNeeded))?"بحاجة مراجعة":match?"تحديث سجل موجود":"طالب جديد"};
+ });
 }
 async function importExcelFile(file){
  const XLSX=await import(/* @vite-ignore */"https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm");
  const wb=XLSX.read(await file.arrayBuffer(),{type:"array"}),rows=[];
- for(const sn of wb.SheetNames){const grid=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:""}),parsed=rowsFromGrid(grid);rows.push(...(parsed.length?parsed:rowsFromPlainText(grid.map(r=>r.join("\t")).join("\n"))))}
- return rows;
+ for(const sn of wb.SheetNames){
+  const grid=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:""});
+  const parsed=rowsFromGrid(grid);
+  rows.push(...(parsed.length?parsed:rowsFromPlainText(grid.map(r=>r.join("\t")).join("\n"),{confidence:100,source:"excel"})));
+ }
+ return rows.map(r=>({...r,_ocrConfidence:100,_ocrScore:100,_reviewNeeded:false,_ocrSource:"excel"}));
+}
+
+let studentOcrWorkerPromise=null;
+let studentOcrProgressSink=null;
+async function getStudentOcrWorker(setProgress){
+ studentOcrProgressSink=setProgress;
+ if(!studentOcrWorkerPromise){
+  studentOcrWorkerPromise=(async()=>{
+   const{createWorker}=await import(/* @vite-ignore */"https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/+esm");
+   const worker=await createWorker("ara+eng",1,{logger:m=>{
+    if(m?.status==="recognizing text"&&studentOcrProgressSink){
+     const pct=Math.max(0,Math.min(100,Math.round((m.progress||0)*100)));
+     studentOcrProgressSink("التعرف الاحترافي على العربية — "+pct+"%");
+    }
+   }});
+   await worker.setParameters({
+    preserve_interword_spaces:"1",
+    user_defined_dpi:"300",
+    tessedit_pageseg_mode:"6"
+   });
+   return worker;
+  })().catch(e=>{studentOcrWorkerPromise=null;throw e});
+ }
+ return studentOcrWorkerPromise;
+}
+function otsuThreshold(hist,total){
+ let sum=0;for(let i=0;i<256;i++)sum+=i*hist[i];
+ let sumB=0,wB=0,maxVar=-1,threshold=145;
+ for(let i=0;i<256;i++){
+  wB+=hist[i];if(!wB)continue;
+  const wF=total-wB;if(!wF)break;
+  sumB+=i*hist[i];
+  const mB=sumB/wB,mF=(sum-sumB)/wF,v=wB*wF*(mB-mF)*(mB-mF);
+  if(v>maxVar){maxVar=v;threshold=i}
+ }
+ return threshold;
+}
+async function preprocessStudentImage(source,mode="contrast"){
+ const bitmap=source instanceof HTMLCanvasElement?source:await createImageBitmap(source);
+ const sw=bitmap.width,sh=bitmap.height;
+ const targetW=Math.min(2400,Math.max(1500,sw<1400?Math.round(sw*1.8):sw));
+ const scale=targetW/sw,targetH=Math.max(1,Math.round(sh*scale));
+ const canvas=document.createElement("canvas");canvas.width=targetW;canvas.height=targetH;
+ const ctx=canvas.getContext("2d",{willReadFrequently:true});
+ ctx.fillStyle="#fff";ctx.fillRect(0,0,targetW,targetH);
+ ctx.drawImage(bitmap,0,0,targetW,targetH);
+ const img=ctx.getImageData(0,0,targetW,targetH),d=img.data,hist=new Uint32Array(256);
+ let mean=0,total=targetW*targetH;
+ for(let i=0;i<d.length;i+=4){const g=Math.round(.299*d[i]+.587*d[i+1]+.114*d[i+2]);hist[g]++;mean+=g}
+ mean/=total;
+ let low=0,high=255,acc=0,cut=total*.015;
+ for(let i=0;i<256;i++){acc+=hist[i];if(acc>=cut){low=i;break}}
+ acc=0;for(let i=255;i>=0;i--){acc+=hist[i];if(acc>=cut){high=i;break}}
+ const span=Math.max(35,high-low),thr=otsuThreshold(hist,total);
+ for(let i=0;i<d.length;i+=4){
+  let g=Math.round(.299*d[i]+.587*d[i+1]+.114*d[i+2]);
+  g=Math.max(0,Math.min(255,Math.round((g-low)*255/span)));
+  if(mode==="binary")g=g>(thr-low)*255/span?255:0;
+  else g=Math.max(0,Math.min(255,Math.round((g-128)*1.24+128)));
+  if(mean<110)g=255-g;
+  d[i]=d[i+1]=d[i+2]=g;d[i+3]=255;
+ }
+ ctx.putImageData(img,0,0);
+ if(!(source instanceof HTMLCanvasElement)&&bitmap.close)bitmap.close();
+ return canvas;
+}
+function scoreOcrResult(rows,confidence){
+ const good=rows.filter(r=>studentNameAssessment(r.name,confidence).valid).length;
+ const avg=rows.length?rows.reduce((a,r)=>a+(r._ocrScore||0),0)/rows.length:0;
+ return good*120+avg+Math.min(100,confidence);
+}
+async function recognizeStudentSource(source,setProgress,label="الصورة"){
+ const worker=await getStudentOcrWorker(setProgress);
+ setProgress("تهيئة "+label+" وتحسين الوضوح...");
+ const contrast=await preprocessStudentImage(source,"contrast");
+ await worker.setParameters({tessedit_pageseg_mode:"6"});
+ setProgress("قراءة "+label+" — المرحلة السريعة...");
+ let first=await worker.recognize(contrast),conf1=Number(first.data?.confidence||0);
+ let rows1=rowsFromPlainText(first.data?.text||"",{confidence:conf1,source:"ocr-fast"});
+ const good1=rows1.filter(r=>!r._reviewNeeded).length;
+ if(good1>=Math.max(2,Math.ceil(rows1.length*.65))&&conf1>=58)return rows1;
+ setProgress("إعادة تحسين المناطق غير الواضحة تلقائيًا...");
+ const binary=await preprocessStudentImage(source,"binary");
+ await worker.setParameters({tessedit_pageseg_mode:"11"});
+ setProgress("قراءة "+label+" — مرحلة الدقة العالية...");
+ let second=await worker.recognize(binary),conf2=Number(second.data?.confidence||0);
+ let rows2=rowsFromPlainText(second.data?.text||"",{confidence:conf2,source:"ocr-accurate"});
+ return scoreOcrResult(rows2,conf2)>scoreOcrResult(rows1,conf1)?rows2:rows1;
 }
 async function importPdfFile(file,setProgress){
  const pdfjs=await import(/* @vite-ignore */"https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs");
  pdfjs.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
- const doc=await pdfjs.getDocument({data:await file.arrayBuffer()}).promise;let text="";
- for(let i=1;i<=doc.numPages;i++){setProgress("قراءة PDF — صفحة "+i+" من "+doc.numPages);const p=await doc.getPage(i),c=await p.getTextContent();text+="\n"+c.items.map(x=>x.str).join(" ")}
- let rows=rowsFromPlainText(text);if(rows.length)return rows;
- const{createWorker}=await import(/* @vite-ignore */"https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/+esm");
- const worker=await createWorker("ara+eng");
- try{for(let i=1;i<=Math.min(doc.numPages,12);i++){setProgress("التعرف الضوئي على PDF — صفحة "+i);const p=await doc.getPage(i),vp=p.getViewport({scale:2}),canvas=document.createElement("canvas");canvas.width=vp.width;canvas.height=vp.height;await p.render({canvasContext:canvas.getContext("2d"),viewport:vp}).promise;const r=await worker.recognize(canvas);text+="\n"+r.data.text}}finally{await worker.terminate()}
- return rowsFromPlainText(text);
+ const doc=await pdfjs.getDocument({data:await file.arrayBuffer()}).promise;
+ let directText="";
+ for(let i=1;i<=doc.numPages;i++){
+  setProgress("قراءة PDF النصية — صفحة "+i+" من "+doc.numPages);
+  const p=await doc.getPage(i),c=await p.getTextContent();
+  directText+="\n"+c.items.map(x=>x.str).join(" ");
+ }
+ let direct=rowsFromPlainText(directText,{confidence:100,source:"pdf-text"});
+ const directGood=direct.filter(r=>!r._reviewNeeded).length;
+ if(directGood>=2)return direct;
+ let rows=[];
+ for(let i=1;i<=Math.min(doc.numPages,20);i++){
+  setProgress("تحضير PDF — صفحة "+i+" من "+Math.min(doc.numPages,20));
+  const p=await doc.getPage(i),vp=p.getViewport({scale:2.35}),canvas=document.createElement("canvas");
+  canvas.width=Math.round(vp.width);canvas.height=Math.round(vp.height);
+  await p.render({canvasContext:canvas.getContext("2d"),viewport:vp}).promise;
+  rows.push(...await recognizeStudentSource(canvas,setProgress,"PDF صفحة "+i));
+ }
+ return rows;
 }
 async function importImageFile(file,setProgress){
- setProgress("قراءة الصورة والتعرف على الكتابة العربية...");
- const{createWorker}=await import(/* @vite-ignore */"https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/+esm");
- const worker=await createWorker("ara+eng");
- try{const r=await worker.recognize(file);return rowsFromPlainText(r.data.text)}finally{await worker.terminate()}
+ return recognizeStudentSource(file,setProgress,"الصورة");
 }
 async function readStudentImportFile(file,setProgress){
  const n=file.name.toLowerCase(),t=file.type||"";
  if(/\.(xlsx|xls)$/i.test(n))return importExcelFile(file);
  if(/\.pdf$/i.test(n)||t==="application/pdf")return importPdfFile(file,setProgress);
  if(t.startsWith("image/")||/\.(png|jpe?g|webp|bmp)$/i.test(n))return importImageFile(file,setProgress);
- const text=await file.text();const delim=text.split(/\r?\n/).map(l=>l.split(/\t|,|;|\|/));const gridRows=rowsFromGrid(delim);return gridRows.length?gridRows:rowsFromPlainText(text);
+ const text=await file.text();
+ const delim=text.split(/\r?\n/).map(l=>l.split(/\t|,|;|\|/));
+ const gridRows=rowsFromGrid(delim);
+ return gridRows.length?gridRows.map(r=>({...r,_ocrConfidence:100,_ocrScore:100,_reviewNeeded:false,_ocrSource:"structured"})):rowsFromPlainText(text,{confidence:100,source:"text"});
 }
 
 
@@ -280,19 +435,19 @@ function StudentImportModal({db,mutate,close}){
  const inputRef=useRef();
  const knownGrades=useMemo(()=>Array.from(new Set(db.students.map(x=>cleanImportText(x.grade)).filter(Boolean))).sort((a,b)=>a.localeCompare(b,"ar")),[db.students]);
  const decorated=useMemo(()=>decorateStudentImport(rows,db.students),[rows,db.students]);
- const valid=decorated.filter(x=>x.name&&!x._duplicateFile),created=valid.filter(x=>!x._existingId).length,updated=valid.filter(x=>x._existingId).length,duplicates=decorated.filter(x=>x._duplicateFile).length;
+ const valid=decorated.filter(x=>x.name&&!x._duplicateFile&&!x._reviewNeeded),review=decorated.filter(x=>x._reviewNeeded&&!x._duplicateFile),created=valid.filter(x=>!x._existingId).length,updated=valid.filter(x=>x._existingId).length,duplicates=decorated.filter(x=>x._duplicateFile).length;
  const loadFiles=async selected=>{const files=Array.from(selected||[]);if(!files.length)return;const grade=cleanImportText(targetGrade);if(!grade){setError("حدد الصف أولاً ثم اختر الصور.");if(inputRef.current)inputRef.current.value="";return}setFileName(files.length===1?files[0].name:files.length+" ملفات");setRows([]);setError("");try{let all=[];for(let i=0;i<files.length;i++){setProgress("الملف "+(i+1)+" من "+files.length+" — جاري تحليل "+files[i].name);const parsed=await readStudentImportFile(files[i],setProgress);all.push(...parsed.map(x=>({...x,grade,gender:targetGender})))}if(!all.length)throw new Error("لم أتمكن من استخراج بيانات الطلاب. جرّب صورة أوضح.");setRows(all.map(x=>({...x,grade,gender:targetGender,_id:id("imp")})));setProgress("")}catch(e){setProgress("");setError(e.message||"تعذر قراءة الملفات")}};
- const edit=(rid,k,v)=>setRows(r=>r.map(x=>x._id===rid?{...x,[k]:["name","grade","className","gender"].includes(k)?v:importMoney(v)}:x));
+ const edit=(rid,k,v)=>setRows(r=>r.map(x=>x._id===rid?{...x,[k]:["name","grade","className","gender"].includes(k)?v:importMoney(v),...(k==="name"?{_manualEdited:true,_reviewNeeded:false,_ocrConfidence:100}:{})}:x));
  const remove=rid=>setRows(r=>r.filter(x=>x._id!==rid));
- const commit=()=>{if(!valid.length){alert("لا توجد صفوف صالحة للحفظ");return}const grade=cleanImportText(targetGrade);if(!grade){alert("حدد الصف أولاً");return}mutate(p=>{let students=[...p.students];const byName=new Map(students.map((x,i)=>[importKeyName(x.name),{x,i}]));for(const r of valid){const key=importKeyName(r.name);if(!key)continue;const found=byName.get(key),patch={name:cleanImportText(r.name),registrationFee:num(r.registrationFee),tuitionFee:num(r.tuitionFee),remainingFee:num(r.remainingFee),grade:cleanImportText(r.grade)||grade,className:r.className||found?.x.className||"",gender:r.gender||targetGender,importedAt:new Date().toISOString(),importSource:fileName,importMethod:"OCR/Smart Import"};if(found){students[found.i]={...found.x,...patch};byName.set(key,{x:students[found.i],i:found.i})}else{const st={id:id("stu"),status:"نشط",parentName:"",parentPhone:"",...patch};students.push(st);byName.set(key,{x:st,i:students.length-1})}}return{...p,students}},"استيراد","الطلاب","OCR إلى "+grade+" — "+targetGender+": "+created+" جديد، "+updated+" تحديث، "+duplicates+" مكرر");alert("تم الحفظ مباشرة في قائمة «"+grade+" — "+targetGender+"» ويمكن تعديل أي طالب من شاشة الطلاب.");close()};
+ const commit=()=>{if(!valid.length){alert("لا توجد صفوف صالحة للحفظ");return}const grade=cleanImportText(targetGrade);if(!grade){alert("حدد الصف أولاً");return}mutate(p=>{let students=[...p.students];const byName=new Map(students.map((x,i)=>[importKeyName(x.name),{x,i}]));for(const r of valid){const key=importKeyName(r.name);if(!key)continue;const found=byName.get(key),patch={name:cleanImportText(r.name),registrationFee:num(r.registrationFee),tuitionFee:num(r.tuitionFee),remainingFee:num(r.remainingFee),grade:cleanImportText(r.grade)||grade,className:r.className||found?.x.className||"",gender:r.gender||targetGender,importedAt:new Date().toISOString(),importSource:fileName,importMethod:"OCR/Smart Import"};if(found){students[found.i]={...found.x,...patch};byName.set(key,{x:students[found.i],i:found.i})}else{const st={id:id("stu"),status:"نشط",parentName:"",parentPhone:"",...patch};students.push(st);byName.set(key,{x:st,i:students.length-1})}}return{...p,students}},"استيراد","الطلاب","OCR إلى "+grade+" — "+targetGender+": "+created+" جديد، "+updated+" تحديث، "+duplicates+" مكرر");alert("تم حفظ "+valid.length+" طالب موثوق في قائمة «"+grade+" — "+targetGender+"»."+(review.length?" بقي "+review.length+" سجل بحاجة مراجعة ولم يُحفظ.":""));close()};
  return <Modal title="قراءة الصور واستيراد الطلاب — OCR عربي" close={close}><div className="studentImport">
   <div className="importRouting"><div><b>1) حدد الصف والقائمة</b><span>ستُنزل البيانات تلقائيًا في القائمة المحددة بعد المراجعة.</span></div><label><span>الصف</span><input list="student-import-grades" value={targetGrade} onChange={e=>setTargetGrade(e.target.value)} placeholder="مثال: الصف الثالث"/><datalist id="student-import-grades">{knownGrades.map(g=><option key={g} value={g}/>)}</datalist></label><label><span>القائمة</span><select value={targetGender} onChange={e=>setTargetGender(e.target.value)}><option value="بنين">👦 بنين</option><option value="بنات">👧 بنات</option></select></label></div>
   <div className="importDestination">وجهة التنزيل: <b>{cleanImportText(targetGrade)||"حدد الصف"} — {targetGender}</b></div>
   <div className="importDrop" onClick={()=>{if(!cleanImportText(targetGrade)){setError("حدد الصف أولاً ثم اختر الصور.");return}inputRef.current?.click()}}><b>📷 صور دفتر / PDF / Excel / CSV / TXT</b><span>يتم تتبع كل ملف وصفحة أثناء القراءة، والصور وPDF الممسوح تُقرأ بالتعرف على العربية والإنجليزية.</span><button className="primary">{fileName?"اختيار ملفات أخرى":"اختيار الصور والملفات"}</button><input ref={inputRef} hidden multiple type="file" accept="image/*,.pdf,.xlsx,.xls,.csv,.txt,.tsv" onChange={e=>loadFiles(e.target.files)}/></div>
   {progress&&<div className="importProgress">⏳ {progress}</div>}{error&&<div className="importError">⚠️ {error}</div>}
-  {rows.length>0&&<><div className="importSummary"><span>الصف <b>{cleanImportText(targetGrade)}</b></span><span>القائمة <b>{targetGender}</b></span><span>جديد <b>{created}</b></span><span>تحديث <b>{updated}</b></span><span>مكرر <b>{duplicates}</b></span><span>إجمالي <b>{decorated.length}</b></span></div>
-  <div className="tableWrap importPreview"><table><thead><tr><th>#</th><th>اسم الطالب</th><th>الجنس</th><th>رسوم التسجيل</th><th>الرسوم الدراسية</th><th>المتبقي</th><th>الصف</th><th>الفصل</th><th>الحالة</th><th></th></tr></thead><tbody>{decorated.map((r,i)=><tr key={r._id} className={r._duplicateFile?"importDuplicate":r._existingId?"importExisting":""}><td>{i+1}</td><td><input value={r.name} onChange={e=>edit(r._id,"name",e.target.value)}/></td><td><select value={r.gender||targetGender} onChange={e=>edit(r._id,"gender",e.target.value)}><option value="بنين">بنين</option><option value="بنات">بنات</option></select></td><td><input dir="ltr" type="number" min="0" value={r.registrationFee||""} onChange={e=>edit(r._id,"registrationFee",e.target.value)}/></td><td><input dir="ltr" type="number" min="0" value={r.tuitionFee||""} onChange={e=>edit(r._id,"tuitionFee",e.target.value)}/></td><td><input dir="ltr" type="number" min="0" value={r.remainingFee||""} onChange={e=>edit(r._id,"remainingFee",e.target.value)}/></td><td><input value={r.grade||""} onChange={e=>edit(r._id,"grade",e.target.value)}/></td><td><input value={r.className||""} onChange={e=>edit(r._id,"className",e.target.value)}/></td><td><S tone={r._duplicateFile?"bad":r._existingId?"warn":"ok"}>{r._status}</S></td><td><button className="danger" onClick={()=>remove(r._id)}>حذف</button></td></tr>)}</tbody></table></div>
-  <div className="importNote">يمكن تعديل البيانات المستخرجة قبل الحفظ، وبعد الحفظ يوجد زر «تعديل» لكل طالب داخل البرنامج.</div><div className="modalActions"><button onClick={close}>إلغاء</button><button className="primary" onClick={commit}>تنزيل وحفظ {valid.length} طالب</button></div></>}
+  {rows.length>0&&<><div className="importSummary"><span>الصف <b>{cleanImportText(targetGrade)}</b></span><span>القائمة <b>{targetGender}</b></span><span>جديد <b>{created}</b></span><span>تحديث <b>{updated}</b></span><span>بحاجة مراجعة <b>{review.length}</b></span><span>مكرر <b>{duplicates}</b></span><span>إجمالي <b>{decorated.length}</b></span></div>
+  <div className="tableWrap importPreview"><table><thead><tr><th>#</th><th>اسم الطالب</th><th>الثقة</th><th>الجنس</th><th>رسوم التسجيل</th><th>الرسوم الدراسية</th><th>المتبقي</th><th>الصف</th><th>الفصل</th><th>الحالة</th><th></th></tr></thead><tbody>{decorated.map((r,i)=><tr key={r._id} className={r._duplicateFile?"importDuplicate":r._reviewNeeded?"importReview":r._existingId?"importExisting":""}><td>{i+1}</td><td><input value={r.name} onChange={e=>edit(r._id,"name",e.target.value)}/>{r._ocrReason&&r._reviewNeeded?<small className="ocrReason">{r._ocrReason}</small>:null}</td><td><span className={"ocrConfidence "+(r._reviewNeeded?"low":(r._ocrScore||0)>=80?"high":"mid")}>{Math.round(r._ocrScore||0)}%</span></td><td><select value={r.gender||targetGender} onChange={e=>edit(r._id,"gender",e.target.value)}><option value="بنين">بنين</option><option value="بنات">بنات</option></select></td><td><input dir="ltr" type="number" min="0" value={r.registrationFee||""} onChange={e=>edit(r._id,"registrationFee",e.target.value)}/></td><td><input dir="ltr" type="number" min="0" value={r.tuitionFee||""} onChange={e=>edit(r._id,"tuitionFee",e.target.value)}/></td><td><input dir="ltr" type="number" min="0" value={r.remainingFee||""} onChange={e=>edit(r._id,"remainingFee",e.target.value)}/></td><td><input value={r.grade||""} onChange={e=>edit(r._id,"grade",e.target.value)}/></td><td><input value={r.className||""} onChange={e=>edit(r._id,"className",e.target.value)}/></td><td><S tone={r._duplicateFile||r._reviewNeeded?"bad":r._existingId?"warn":"ok"}>{r._status}</S></td><td><button className="danger" onClick={()=>remove(r._id)}>حذف</button></td></tr>)}</tbody></table></div>
+  <div className="importNote">يتم حفظ الأسماء الموثوقة فقط. أي قراءة ضعيفة تُعلّم «بحاجة مراجعة» ولا تُحفظ حتى تصحيح الاسم يدويًا. المحرك يعيد القراءة تلقائيًا بدقة أعلى عندما تكون الثقة منخفضة.</div><div className="modalActions"><button onClick={close}>إلغاء</button><button className="primary" onClick={commit}>تنزيل وحفظ {valid.length} طالب</button></div></>}
  </div></Modal>
 }
 
