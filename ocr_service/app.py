@@ -139,6 +139,60 @@ def _runs(mask: np.ndarray, max_gap: int = 8):
     out.append((start, prev + 1))
     return out
 
+
+def _count_projection_groups(profile, axis_len):
+    threshold = max(0.18, float(np.quantile(profile, 0.96)) * 0.70)
+    idx = np.flatnonzero(profile >= threshold)
+    groups = _cluster_indices(idx, max_gap=max(2, axis_len // 700))
+    return [
+        (a, b)
+        for a, b in groups
+        if (b - a) < max(20, axis_len // 30)
+    ]
+
+
+def _ledger_orientation_score(image: Image.Image):
+    gray = ImageOps.autocontrast(image.convert("L"), cutoff=1)
+    arr = np.array(gray, dtype=np.uint8, copy=False)
+    if arr.size == 0:
+        return -1e9
+
+    cutoff = min(200, max(80, int(np.quantile(arr, 0.35)) + 35))
+    dark = arr < cutoff
+    h, w = dark.shape
+
+    row_profile = dark.mean(axis=1)
+    col_profile = dark.mean(axis=0)
+    row_groups = _count_projection_groups(row_profile, h)
+    col_groups = _count_projection_groups(col_profile, w)
+
+    # A correctly oriented ledger has a few strong vertical column dividers
+    # and many lighter horizontal notebook rules. Wrong 90° orientations swap
+    # those signatures. Weight the strong divider direction heavily.
+    grid_score = (len(col_groups) - len(row_groups)) * 2.0
+
+    # Student entries and headers occupy the upper-right part of an upright
+    # Arabic ledger. This disambiguates 0° from 180° without needing OCR.
+    y0a, y0b = int(h * 0.05), int(h * 0.42)
+    y1a, y1b = int(h * 0.58), int(h * 0.95)
+    xa, xb = int(w * 0.48), int(w * 0.98)
+    top = float(dark[y0a:y0b, xa:xb].mean()) if y0b > y0a and xb > xa else 0.0
+    bottom = float(dark[y1a:y1b, xa:xb].mean()) if y1b > y1a and xb > xa else 0.0
+    content_score = (top - bottom) * 50.0
+
+    return grid_score + content_score
+
+
+def _normalize_ledger_orientation(image: Image.Image):
+    base = ImageOps.exif_transpose(image)
+    candidates = []
+    for angle in (0, 90, 180, 270):
+        rotated = base.rotate(angle, expand=True)
+        candidates.append((_ledger_orientation_score(rotated), angle, rotated))
+    score, angle, best = max(candidates, key=lambda item: item[0])
+    return best, {"rotation": angle, "orientationScore": round(float(score), 4)}
+
+
 def _crop_page_region(image: Image.Image):
     """Crop dark desk/hand/background before ledger segmentation.
 
@@ -146,7 +200,8 @@ def _crop_page_region(image: Image.Image):
     background. Keeping the desk in the segmentation image was causing false
     vertical/horizontal rules and chopping Arabic names.
     """
-    original = ImageOps.exif_transpose(image).convert("L")
+    oriented, orientation_meta = _normalize_ledger_orientation(image)
+    original = oriented.convert("L")
     arr = np.array(original, dtype=np.uint8, copy=False)
     h, w = arr.shape
 
@@ -181,6 +236,8 @@ def _crop_page_region(image: Image.Image):
 
     cropped = original.crop((x0, y0, x1, y1))
     return cropped, {
+        "rotation": int(orientation_meta.get("rotation") or 0),
+        "orientationScore": orientation_meta.get("orientationScore"),
         "originalWidth": w,
         "originalHeight": h,
         "pageBoxPx": [x0, y0, x1, y1],
@@ -558,6 +615,8 @@ def _ledger_rows(image: Image.Image):
     return dedup[:45], {
         "imageWidth": orig_w,
         "imageHeight": orig_h,
+        "rotation": int(page_meta.get("rotation") or 0),
+        "orientationScore": page_meta.get("orientationScore"),
         "pageBox": [
             round(px0 / orig_w, 5),
             round(py0 / orig_h, 5),
@@ -602,7 +661,7 @@ def _quality(text: str):
 
 @app.get("/health")
 def health():
-    return {"ok": True, "engine": "arabic-htr-v2.2-periodic-grid", "model": MODEL_REPO, "segmentation": "paper-crop+periodic-ledger-grid+name-column", "modelReady": _model_bundle is not None}
+    return {"ok": True, "engine": "arabic-htr-v2.3-auto-orientation", "model": MODEL_REPO, "segmentation": "auto-rotate+paper-crop+periodic-ledger-grid+name-column", "modelReady": _model_bundle is not None}
 
 @app.post("/ocr")
 async def ocr(
@@ -619,7 +678,7 @@ async def ocr(
         raise HTTPException(400, "Unsupported image")
     model, charset, cfg, recognise_line = _load_model()
     row_specs, layout = _line_crops(image)
-    print(f"HTR segmentation rows={len(row_specs)} pageBox={layout.get('pageBox')} nameColumn={layout.get('nameColumn')}", flush=True)
+    print(f"HTR segmentation rows={len(row_specs)} rotation={layout.get('rotation')} pageBox={layout.get('pageBox')} nameColumn={layout.get('nameColumn')}", flush=True)
     lines = []
     h = max(1, int(layout.get("imageHeight") or 1))
     for idx, spec in enumerate(row_specs, start=1):
