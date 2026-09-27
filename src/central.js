@@ -92,7 +92,7 @@ export async function centralLoad(blank){
     versionCache[row.module]=Number(row.version||0);
     lastSnapshot[row.module]=snap(row.data);
   }
-  let users=[{id:"u-admin",authId:profile.user_id,name:profile.full_name,email:profile.email,role:profile.role,active:profile.active}];
+  let users=[{id:"u-admin",authId:profile.user_id,name:profile.full_name,email:profile.email,phone:profile.phone||"",role:profile.role,active:profile.active}];
   if(["مدير النظام","مدير المدرسة"].includes(profile.role)){
     const {data:profiles,error:pe}=await supabase.from("profiles").select("user_id,full_name,email,role,active,phone");
     if(!pe&&profiles?.length) users=profiles.map((p,idx)=>({id:p.user_id===profile.user_id?"u-admin":"auth-"+idx,authId:p.user_id,name:p.full_name,email:p.email||"",phone:p.phone||"",role:p.role,active:p.active}));
