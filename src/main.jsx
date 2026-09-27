@@ -289,20 +289,50 @@ async function sourceToUploadBlob(source){
  if(source instanceof HTMLCanvasElement)return await new Promise((resolve,reject)=>source.toBlob(b=>b?resolve(b):reject(new Error("تعذر تجهيز الصورة")),"image/jpeg",.92));
  throw new Error("مصدر الصورة غير مدعوم");
 }
+async function htrServiceHealth(timeoutMs=7000){
+ if(!HANDWRITING_OCR_URL)return null;
+ const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),timeoutMs);
+ try{
+  const res=await fetch(HANDWRITING_OCR_URL+"/health",{cache:"no-store",signal:ctrl.signal});
+  if(!res.ok)return null;
+  return await res.json().catch(()=>null);
+ }catch{return null}finally{clearTimeout(timer)}
+}
 async function recognizeArabicHandwriting(source,setProgress,label="الصورة"){
  if(!HANDWRITING_OCR_URL||!centralEnabled)return[];
  const session=await getSession();
  if(!session?.access_token)return[];
+
+ setProgress("التحقق من محرك قراءة الخط العربي...");
+ const health=await htrServiceHealth(7000);
+ if(!health?.ok){
+  // Wake a sleeping free Render instance in the background, but never leave
+  // the user staring at a frozen import dialog.
+  fetch(HANDWRITING_OCR_URL+"/health",{cache:"no-store"}).catch(()=>{});
+  throw new Error("محرك الخط العربي قيد الإحماء");
+ }
+
  const blob=await sourceToUploadBlob(source);
  const form=new FormData();
  form.append("file",blob,blob.name||"notebook.jpg");
- const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),150000);
+
+ const ctrl=new AbortController();
+ const timeoutMs=health.modelReady?45000:60000;
+ const timer=setTimeout(()=>ctrl.abort(),timeoutMs);
+ const p1=setTimeout(()=>setProgress(health.modelReady?"قراءة الأسماء العربية من عمود الاسم...":"تحميل نموذج الخط العربي لأول استخدام..."),6000);
+ const p2=setTimeout(()=>setProgress("معالجة السطور وربط كل اسم بصفه — الرجاء الانتظار قليلًا..."),18000);
+ const p3=setTimeout(()=>setProgress("القراءة المتخصصة تأخذ وقتًا أطول من المعتاد؛ سيتم التحويل تلقائيًا للمحرك الاحتياطي إن لزم."),35000);
+
  try{
-  setProgress("قراءة الخط العربي اليدوي بالذكاء المتخصص — "+label+"...");
-  const res=await fetch(HANDWRITING_OCR_URL+"/ocr",{method:"POST",headers:{authorization:"Bearer "+session.access_token},body:form,signal:ctrl.signal});
+  setProgress(health.modelReady?"قراءة الخط العربي اليدوي — "+label+"...":"تجهيز محرك الخط العربي — "+label+"...");
+  const res=await fetch(HANDWRITING_OCR_URL+"/ocr",{
+   method:"POST",
+   headers:{authorization:"Bearer "+session.access_token},
+   body:form,
+   signal:ctrl.signal
+  });
   let data={};try{data=await res.json()}catch{}
   if(!res.ok)throw new Error(data?.detail||"تعذر تشغيل محرك الخط اليدوي");
-  const layout=data.layout||{};
   return (data.rows||[]).map((r,i)=>({
    name:cleanArabicNameCandidate(r.name||""),
    birthDate:"",studentPhone:"",
@@ -315,9 +345,14 @@ async function recognizeArabicHandwriting(source,setProgress,label="الصورة
    _htrRow:Number(r.row||i+1),
    _y:Number(r.y||0),
    _rowBounds:[Number(r.y0||0),Number(r.y1||0)],
-   _htrLayout:layout
+   _htrLayout:data.layout||{}
   })).filter(r=>r.name);
- }finally{clearTimeout(timer)}
+ }catch(e){
+  if(e?.name==="AbortError")throw new Error("انتهت مهلة محرك الخط العربي؛ تم التحويل تلقائيًا للمحرك الاحتياطي");
+  throw e;
+ }finally{
+  clearTimeout(timer);clearTimeout(p1);clearTimeout(p2);clearTimeout(p3);
+ }
 }
 
 
@@ -636,7 +671,7 @@ function scoreOcrResult(rows,confidence){
 }
 async function recognizeStudentSource(source,setProgress,label="الصورة"){
  let htrRows=[];
- try{htrRows=await recognizeArabicHandwriting(source,setProgress,label)}catch(e){console.warn("Arabic HTR fallback",e)}
+ try{htrRows=await recognizeArabicHandwriting(source,setProgress,label)}catch(e){console.warn("Arabic HTR fallback",e);setProgress((e?.message||"تعذر محرك الخط العربي")+" — جاري تشغيل القراءة الاحتياطية...")}
  let paddlePack=null;
  try{paddlePack=await recognizeWithPaddle(source,setProgress,label)}catch(e){console.warn("PaddleOCR detail fallback",e)}
 
@@ -745,7 +780,7 @@ function StudentImportModal({db,mutate,close}){
  return <Modal title="قراءة الصور واستيراد الطلاب — OCR عربي" close={close}><div className="studentImport">
   <div className="importRouting"><div><b>1) حدد الصف والقائمة</b><span>ستُنزل البيانات تلقائيًا في القائمة المحددة بعد المراجعة.</span></div><label><span>الصف</span><input list="student-import-grades" value={targetGrade} onChange={e=>setTargetGrade(e.target.value)} placeholder="مثال: الصف الثالث"/><datalist id="student-import-grades">{knownGrades.map(g=><option key={g} value={g}/>)}</datalist></label><label><span>القائمة</span><select value={targetGender} onChange={e=>setTargetGender(e.target.value)}><option value="بنين">👦 بنين</option><option value="بنات">👧 بنات</option></select></label></div>
   <div className="importDestination">وجهة التنزيل: <b>{cleanImportText(targetGrade)||"حدد الصف"} — {targetGender}</b></div>
-  <div className="importDrop"><b>📷 صور دفتر / PDF / Excel / CSV / TXT</b><span>يتم تتبع كل ملف وصفحة أثناء القراءة، والصور وPDF الممسوح تُقرأ بالتعرف على العربية والإنجليزية.</span><button type="button" className="primary" onClick={e=>{e.preventDefault();e.stopPropagation();if(!cleanImportText(targetGrade)){setError("حدد الصف أولاً ثم اختر الصور.");return}if(inputRef.current){inputRef.current.value="";inputRef.current.click()}}}>{fileName?"اختيار ملفات أخرى":"اختيار الصور والملفات"}</button><input ref={inputRef} style={{position:"absolute",width:1,height:1,opacity:0,pointerEvents:"none"}} multiple type="file" accept="image/*,.pdf,.xlsx,.xls,.csv,.txt,.tsv" onChange={e=>{const picked=e.currentTarget.files;loadFiles(picked)}}/></div>
+  <div className="importDrop"><b>📷 صور دفتر / PDF / Excel / CSV / TXT</b><span>يتم تتبع كل ملف وصفحة أثناء القراءة. إذا تأخر محرك الخط العربي ينتقل النظام تلقائيًا إلى محرك احتياطي بدل بقاء النافذة معلقة.</span><button type="button" className="primary" onClick={e=>{e.preventDefault();e.stopPropagation();if(!cleanImportText(targetGrade)){setError("حدد الصف أولاً ثم اختر الصور.");return}if(inputRef.current){inputRef.current.value="";inputRef.current.click()}}}>{fileName?"اختيار ملفات أخرى":"اختيار الصور والملفات"}</button><input ref={inputRef} style={{position:"absolute",width:1,height:1,opacity:0,pointerEvents:"none"}} multiple type="file" accept="image/*,.pdf,.xlsx,.xls,.csv,.txt,.tsv" onChange={e=>{const picked=e.currentTarget.files;loadFiles(picked)}}/></div>
   {progress&&<div className="importProgress">⏳ {progress}</div>}{error&&<div className="importError">⚠️ {error}</div>}
   {rows.length>0&&<><div className="importSummary"><span>الصف <b>{cleanImportText(targetGrade)}</b></span><span>القائمة <b>{targetGender}</b></span><span>جديد <b>{created}</b></span><span>تحديث <b>{updated}</b></span><span>بحاجة مراجعة <b>{review.length}</b></span><span>مكرر <b>{duplicates}</b></span><span>إجمالي <b>{decorated.length}</b></span></div>
   <div className="tableWrap importPreview"><table><thead><tr><th>#</th><th>اسم الطالب</th><th>الثقة</th><th>الجنس</th><th>تاريخ الميلاد</th><th>الجوال</th><th>رسوم التسجيل</th><th>رسوم الدراسة</th><th>القسط الأول</th><th>القسط الثاني</th><th>المتبقي</th><th>الصف</th><th>الفصل</th><th>الحالة</th><th></th></tr></thead><tbody>{decorated.map((r,i)=><tr key={r._id} className={r._duplicateFile?"importDuplicate":r._reviewNeeded?"importReview":r._existingId?"importExisting":""}><td>{i+1}</td><td><input value={r.name} onChange={e=>edit(r._id,"name",e.target.value)}/>{r._ocrReason&&r._reviewNeeded?<small className="ocrReason">{r._ocrReason}</small>:null}</td><td><span className={"ocrConfidence "+(r._reviewNeeded?"low":(r._ocrScore||0)>=80?"high":"mid")}>{Math.round(r._ocrScore||0)}%</span></td><td><select value={r.gender||targetGender} onChange={e=>edit(r._id,"gender",e.target.value)}><option value="بنين">بنين</option><option value="بنات">بنات</option></select></td><td><input dir="ltr" value={r.birthDate||""} onChange={e=>edit(r._id,"birthDate",e.target.value)}/></td><td><input dir="ltr" inputMode="tel" value={r.studentPhone||""} onChange={e=>edit(r._id,"studentPhone",e.target.value)}/></td><td><input dir="ltr" type="number" min="0" value={r.registrationFee||""} onChange={e=>edit(r._id,"registrationFee",e.target.value)}/></td><td><input dir="ltr" type="number" min="0" value={r.tuitionFee||""} onChange={e=>edit(r._id,"tuitionFee",e.target.value)}/></td><td><input dir="ltr" type="number" min="0" value={r.firstInstallment||""} onChange={e=>edit(r._id,"firstInstallment",e.target.value)}/></td><td><input dir="ltr" type="number" min="0" value={r.secondInstallment||""} onChange={e=>edit(r._id,"secondInstallment",e.target.value)}/></td><td><input dir="ltr" type="number" min="0" value={r.remainingFee||""} onChange={e=>edit(r._id,"remainingFee",e.target.value)}/></td><td><input value={r.grade||""} onChange={e=>edit(r._id,"grade",e.target.value)}/></td><td><input value={r.className||""} onChange={e=>edit(r._id,"className",e.target.value)}/></td><td><S tone={r._duplicateFile||r._reviewNeeded?"bad":r._existingId?"warn":"ok"}>{r._status}</S></td><td><button className="danger" onClick={()=>remove(r._id)}>حذف</button></td></tr>)}</tbody></table></div>
