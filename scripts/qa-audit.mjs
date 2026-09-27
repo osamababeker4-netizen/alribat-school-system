@@ -50,6 +50,15 @@ has(main,'max={today()}','student attendance must block future dates');
 has(main,'رمز الصنف مستخدم بالفعل','inventory duplicate SKU protection missing');
 has(main,'centralEnabled?<><b>{user.name}</b>','production account switch hardening missing');
 has(main,'CORE_FEE_FIELDS','core registration/tuition fee mapping missing');
+has(main,'gradeCounts=[...gradeMap.entries()]','dashboard must use real grade/student data');
+has(main,'setModal({type:"notes"})','dashboard notification navigation missing');
+has(main,'quick=[["الطلاب"','authorized quick-action map missing');
+has(main,'users:p.users,central:p.central','central restore must preserve authenticated identity');
+has(main,'importOptionalMoney','structured imports must preserve blank monetary values');
+ok(!main.includes('["الأساسي الأول",72]'),"dashboard still contains fixed demo metrics");
+ok(!main.includes('onClick={()=>go("الطلبات والموافقات")}>عرض الكل</button>'),"notification button still routes to requests");
+ok(!main.includes('input type="file" accept="image/*" onChange={logoFile}'),"non-functional logo uploader still visible");
+
 ok(!main.includes('label="الفصل"'),'student class/section field must be removed');
 ok(!main.includes('<th>الفصل</th>'),'student class/section list column must be removed');
 ok(!main.includes('student.className'),'student class/section references must be removed');
