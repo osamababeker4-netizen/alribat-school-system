@@ -314,6 +314,140 @@ async function recognizeArabicHandwriting(source,setProgress,label="الصورة
  }finally{clearTimeout(timer)}
 }
 
+
+let studentPaddlePromise=null;
+async function getStudentPaddleOcr(setProgress){
+ if(!studentPaddlePromise){
+  setProgress("تحميل محرك القراءة العربية المتقدم لأول مرة...");
+  studentPaddlePromise=(async()=>{
+   const{PaddleOCR}=await import(/* @vite-ignore */"https://cdn.jsdelivr.net/npm/@paddleocr/paddleocr-js@0.4.2/+esm");
+   return PaddleOCR.create({
+    lang:"ar",
+    ocrVersion:"PP-OCRv5",
+    textDetectionBatchSize:1,
+    textRecognitionBatchSize:8,
+    ortOptions:{
+     backend:"wasm",
+     wasmPaths:"https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/",
+     numThreads:1,
+     simd:true
+    }
+   });
+  })().catch(e=>{studentPaddlePromise=null;throw e});
+ }
+ return studentPaddlePromise;
+}
+function paddlePolyBox(poly){
+ const pts=[];
+ if(Array.isArray(poly)){
+  if(poly.length&&Array.isArray(poly[0])){
+   for(const p of poly){if(Array.isArray(p)&&p.length>=2)pts.push([Number(p[0]),Number(p[1])])}
+  }else if(poly.length>=4){
+   for(let i=0;i+1<poly.length;i+=2)pts.push([Number(poly[i]),Number(poly[i+1])]);
+  }
+ }
+ if(!pts.length)return{cx:0,cy:0,w:0,h:24};
+ const xs=pts.map(p=>p[0]).filter(Number.isFinite),ys=pts.map(p=>p[1]).filter(Number.isFinite);
+ if(!xs.length||!ys.length)return{cx:0,cy:0,w:0,h:24};
+ const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+ return{cx:(minX+maxX)/2,cy:(minY+maxY)/2,w:maxX-minX,h:Math.max(8,maxY-minY)};
+}
+function paddleConfidence(score){
+ const n=Number(score||0);
+ return Math.max(0,Math.min(100,n<=1?n*100:n));
+}
+function rowsFromPaddleResult(result){
+ const items=(result?.items||[]).map((it,i)=>{
+  const text=cleanImportText(it?.text||"");
+  const box=paddlePolyBox(it?.poly);
+  return{text,score:paddleConfidence(it?.score),box,i};
+ }).filter(x=>x.text);
+ if(!items.length)return[];
+ const hs=items.map(x=>x.box.h).filter(x=>x>0).sort((a,b)=>a-b);
+ const medianH=hs.length?hs[Math.floor(hs.length/2)]:26;
+ const tolerance=Math.max(14,Math.min(55,medianH*.72));
+ const groups=[];
+ for(const item of [...items].sort((a,b)=>a.box.cy-b.box.cy||b.box.cx-a.box.cx)){
+  let best=null,bestD=Infinity;
+  for(const g of groups){
+   const d=Math.abs(item.box.cy-g.cy);
+   if(d<=tolerance&&d<bestD){best=g;bestD=d}
+  }
+  if(!best){best={cy:item.box.cy,items:[]};groups.push(best)}
+  best.items.push(item);
+  best.cy=best.items.reduce((n,x)=>n+x.box.cy,0)/best.items.length;
+ }
+ const out=[];
+ for(const g of groups.sort((a,b)=>a.cy-b.cy)){
+  const cells=[...g.items].sort((a,b)=>b.box.cx-a.box.cx);
+  const arabicCells=cells.filter(x=>{
+   const cleaned=cleanArabicNameCandidate(x.text);
+   return cleaned&&/[\u0621-\u064A]/.test(cleaned)&&!/(اسم\s*الطالب|رسوم|متبقي|الرصيد|المبلغ|التسجيل|الدراسي|الصف|الفصل)/i.test(x.text);
+  });
+  if(!arabicCells.length)continue;
+  // The student-name column is right-to-left in the school notebook. Join nearby
+  // Arabic fragments on the same physical row so handwriting split into words
+  // becomes one full name instead of several fake students.
+  const rightEdge=arabicCells[0].box.cx;
+  const selected=arabicCells.filter((x,idx)=>idx===0||rightEdge-x.box.cx<=Math.max(420,x.box.w*4));
+  const rawName=selected.map(x=>x.text).join(" ");
+  const name=cleanArabicNameCandidate(rawName);
+  if(!name||name.length<2)continue;
+  const nameConf=selected.reduce((n,x)=>n+x.score,0)/selected.length;
+  const numeric=[];
+  for(const cell of cells){
+   for(const m of westernDigits(cell.text).matchAll(/\d[\d,.٬٫]*/g)){
+    const raw=m[0].replace(/[^\d]/g,"");
+    const value=importMoney(m[0]);
+    if(raw.length&&raw.length<=8&&Number.isFinite(value))numeric.push({value,x:cell.box.cx});
+   }
+  }
+  numeric.sort((a,b)=>b.x-a.x);
+  const vals=numeric.map(x=>x.value);
+  const check=studentNameAssessment(name,nameConf);
+  out.push({
+   name,
+   registrationFee:vals.length>=3?vals[vals.length-3]:0,
+   tuitionFee:vals.length>=2?vals[vals.length-2]:0,
+   remainingFee:vals.length>=1?vals[vals.length-1]:0,
+   grade:"",
+   className:"",
+   _ocrConfidence:Math.round(nameConf),
+   _ocrScore:check.score,
+   _ocrReason:check.reason,
+   _reviewNeeded:!check.valid,
+   _ocrSource:"paddle-ar-v5",
+   _ocrEngine:"PP-OCRv5 Arabic"
+  });
+ }
+ // Remove repeated detections without hiding uncertain rows from review.
+ const seen=new Set();
+ return out.filter(r=>{const k=importKeyName(r.name);if(!k||seen.has(k))return false;seen.add(k);return true});
+}
+async function recognizeWithPaddle(source,setProgress,label){
+ const ocr=await getStudentPaddleOcr(setProgress);
+ setProgress("قراءة الخط العربي المتقدم — "+label+"...");
+ const options={
+  textDetLimitSideLen:1920,
+  textDetLimitType:"max",
+  textDetThresh:.22,
+  textDetBoxThresh:.28,
+  textDetUnclipRatio:1.7,
+  textRecScoreThresh:.12
+ };
+ const[result]=await ocr.predict(source,options);
+ let rows=rowsFromPaddleResult(result);
+ const good=rows.filter(r=>!r._reviewNeeded).length;
+ if(good>=Math.max(2,Math.ceil(rows.length*.58)))return rows;
+ setProgress("تحسين الصورة وإعادة قراءة الأسماء الصعبة...");
+ const contrast=await preprocessStudentImage(source,"contrast");
+ const[retry]=await ocr.predict(contrast,{...options,textDetThresh:.16,textDetBoxThresh:.2,textRecScoreThresh:.08});
+ const second=rowsFromPaddleResult(retry);
+ return scoreOcrResult(second,second.reduce((n,r)=>n+(r._ocrConfidence||0),0)/Math.max(1,second.length))>
+        scoreOcrResult(rows,rows.reduce((n,r)=>n+(r._ocrConfidence||0),0)/Math.max(1,rows.length))
+        ?second:rows;
+}
+
 let studentOcrWorkerPromise=null;
 let studentOcrProgressSink=null;
 async function getStudentOcrWorker(setProgress){
@@ -384,36 +518,41 @@ function scoreOcrResult(rows,confidence){
  return good*120+avg+Math.min(100,confidence);
 }
 async function recognizeStudentSource(source,setProgress,label="الصورة"){
+ let paddleRows=[];
+ try{
+  paddleRows=await recognizeWithPaddle(source,setProgress,label);
+  const paddleGood=paddleRows.filter(r=>!r._reviewNeeded).length;
+  if(paddleGood>=Math.max(2,Math.ceil(paddleRows.length*.55)))return paddleRows;
+ }catch(e){console.warn("PaddleOCR Arabic fallback",e)}
  let htrRows=[];
  try{htrRows=await recognizeArabicHandwriting(source,setProgress,label)}catch(e){console.warn("Arabic HTR fallback",e)}
+ if(htrRows.length>=2){
+  if(!paddleRows.length)return htrRows;
+  const htrScore=scoreOcrResult(htrRows,htrRows.reduce((n,r)=>n+(r._ocrConfidence||0),0)/Math.max(1,htrRows.length));
+  const paddleScore=scoreOcrResult(paddleRows,paddleRows.reduce((n,r)=>n+(r._ocrConfidence||0),0)/Math.max(1,paddleRows.length));
+  if(htrScore>paddleScore)return htrRows;
+ }
+ // Tesseract remains only as a final compatibility fallback for devices on
+ // which the Arabic PP-OCRv5 runtime cannot initialize.
  const worker=await getStudentOcrWorker(setProgress);
- setProgress("تهيئة "+label+" وتحسين الأرقام والجدول...");
+ setProgress("تشغيل القراءة الاحتياطية للأرقام والجدول...");
  const contrast=await preprocessStudentImage(source,"contrast");
  await worker.setParameters({tessedit_pageseg_mode:"6"});
- setProgress(htrRows.length?"مطابقة الأسماء اليدوية مع بيانات الجدول...":"قراءة "+label+" — المرحلة السريعة...");
  let first=await worker.recognize(contrast),conf1=Number(first.data?.confidence||0);
- let rows1=rowsFromPlainText(first.data?.text||"",{confidence:conf1,source:"ocr-fast"});
- if(htrRows.length>=2){
-  return htrRows.map((h,i)=>{
-   const n=rows1[i]||{};
-   return{...h,
-    registrationFee:num(n.registrationFee),
-    tuitionFee:num(n.tuitionFee),
-    remainingFee:num(n.remainingFee),
-    grade:n.grade||"",
-    className:n.className||""
-   };
-  });
- }
+ let rows1=rowsFromPlainText(first.data?.text||"",{confidence:conf1,source:"tesseract-fallback"});
  const good1=rows1.filter(r=>!r._reviewNeeded).length;
- if(good1>=Math.max(2,Math.ceil(rows1.length*.65))&&conf1>=58)return rows1;
- setProgress("إعادة تحسين المناطق غير الواضحة تلقائيًا...");
- const binary=await preprocessStudentImage(source,"binary");
- await worker.setParameters({tessedit_pageseg_mode:"11"});
- setProgress("قراءة "+label+" — مرحلة الدقة العالية...");
- let second=await worker.recognize(binary),conf2=Number(second.data?.confidence||0);
- let rows2=rowsFromPlainText(second.data?.text||"",{confidence:conf2,source:"ocr-accurate"});
- return scoreOcrResult(rows2,conf2)>scoreOcrResult(rows1,conf1)?rows2:rows1;
+ if(good1<Math.max(2,Math.ceil(rows1.length*.65))||conf1<58){
+  setProgress("إعادة المحاولة الاحتياطية بدقة أعلى...");
+  const binary=await preprocessStudentImage(source,"binary");
+  await worker.setParameters({tessedit_pageseg_mode:"11"});
+  const second=await worker.recognize(binary),conf2=Number(second.data?.confidence||0);
+  const rows2=rowsFromPlainText(second.data?.text||"",{confidence:conf2,source:"tesseract-accurate-fallback"});
+  if(scoreOcrResult(rows2,conf2)>scoreOcrResult(rows1,conf1))rows1=rows2;
+ }
+ if(!paddleRows.length)return rows1;
+ const tScore=scoreOcrResult(rows1,conf1);
+ const pConf=paddleRows.reduce((n,r)=>n+(r._ocrConfidence||0),0)/Math.max(1,paddleRows.length);
+ return scoreOcrResult(paddleRows,pConf)>=tScore?paddleRows:rows1;
 }
 
 async function importPdfFile(file,setProgress){
