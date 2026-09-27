@@ -1,4 +1,4 @@
-import{centralEnabled,currentProfile,getSession,inviteSchoolUser,setSchoolUserActive,updateMyPhone}from"./central.js";
+import{centralEnabled,currentProfile,getSession,inviteSchoolUser,recordStaffGeofenceEvent,setSchoolUserActive,updateMyPhone}from"./central.js";
 import React,{useEffect,useMemo,useRef,useState}from"react";
 import{audit,backup,balance,clear,csv,fstatus,id,load,money,paid,restore,save,total}from"./store.js";
 import ORIGINAL_LOGO_DATA from"./originalLogo.js";
@@ -6,7 +6,7 @@ import"./styles.css";
 
 const MODS=[["الرئيسية","⌂"],["الطلاب","🎓"],["الرسوم والتحصيل","💳"],["المصروفات","🧾"],["الموظفون","👥"],["حضور الموظفين","⏱"],["الحضور","✓"],["المخزون","▣"],["الطلبات والموافقات","↔"],["ورقة التقدير","📝"],["التقارير","▤"],["المستخدمون والصلاحيات","👤"],["الإعدادات","⚙"]];
 const PERMS={"مدير النظام":MODS.map(x=>x[0]),"مدير المدرسة":MODS.map(x=>x[0]),"محاسب":["الرئيسية","الطلاب","الرسوم والتحصيل","المصروفات","التقارير"],"أمين المستودع":["الرئيسية","المخزون","الطلبات والموافقات","التقارير"],"مشرف/معلم":["الرئيسية","الطلاب","الحضور","ورقة التقدير","الطلبات والموافقات"]};
-const ROLES=Object.keys(PERMS),today=()=>new Date().toISOString().slice(0,10),num=x=>Number(x||0);
+const ROLES=Object.keys(PERMS),SCHOOL_TZ="Africa/Khartoum",today=()=>new Intl.DateTimeFormat("en-CA",{timeZone:SCHOOL_TZ,year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()),num=x=>Number(x||0);
 function S({children,tone="neutral"}){return <span className={"status "+tone}>{children}</span>}
 function Empty({text="لا توجد بيانات حتى الآن"}){return <div className="empty"><div className="emptyIcon">▤</div><b>{text}</b><span>استخدم زر الإضافة لبدء التسجيل.</span></div>}
 function Head({title,desc,add,onAdd,search,setSearch,extra}){return <><div className="panel-title"><div><span className="eyebrow">مدرسة الرباط</span><h2>{title}</h2></div>{add&&<button className="primary" onClick={onAdd}>+ {add}</button>}</div><p className="muted">{desc}</p>{setSearch&&<div className="toolbar"><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="بحث..."/>{extra}</div>}</>}
@@ -21,7 +21,7 @@ const coreFeeFor=(db,studentId,type)=>(db.fees||[]).find(x=>x.studentId===studen
 const hasCoreFees=(db,studentId)=>(db.fees||[]).some(x=>x.studentId===studentId&&CORE_FEE_FIELDS[x.type]);
 const coreRemaining=(db,studentId)=>(db.fees||[]).filter(x=>x.studentId===studentId&&CORE_FEE_FIELDS[x.type]).reduce((n,x)=>n+balance(db,x),0);
 function nextReceiptNumber(payments){
- const y=new Date().getFullYear(),rx=new RegExp("^REC-"+y+"-(\\d+)$");
+ const y=new Intl.DateTimeFormat("en",{timeZone:SCHOOL_TZ,year:"numeric"}).format(new Date()),rx=new RegExp("^REC-"+y+"-(\\d+)$");
  const max=(payments||[]).reduce((m,x)=>{const hit=String(x.receipt||"").match(rx);return hit?Math.max(m,Number(hit[1])||0):m},0);
  return "REC-"+y+"-"+String(max+1).padStart(5,"0");
 }
@@ -107,22 +107,9 @@ function resolveProfileStaff(db,profile){
  const pn=normalizePersonName(profile.full_name);if(pn){const byName=active.find(x=>normalizePersonName(x.name)===pn);if(byName)return byName}
  return null;
 }
-function localTimeHM(){return new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",hour12:false})}
-function autoAttendanceWrite(setDb,staff,profile,kind,pos,distance){
- const date=today(),now=localTimeHM(),who=profile?.full_name||staff.name,stamp=new Date().toISOString();
- setDb(p=>{
-  const list=p.staffAttendance||[],old=list.find(x=>x.staffId===staff.id&&x.date===date);
-  if(kind==="in"&&old?.checkIn)return p;
-  if(kind==="out"&&(!old?.checkIn||old?.checkOut))return p;
-  const base=old||{id:id("satt"),staffId:staff.id,staffName:staff.name,role:staff.role,date,status:"حاضر",checkIn:"",checkOut:"",notes:""};
-  const geo={lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy,distance:Math.round(distance),at:stamp,mode:"auto"};
-  const next=kind==="in"?{...base,status:"حاضر",checkIn:now,checkInGeo:geo,autoCheckIn:true,updatedAt:stamp}:{...base,checkOut:now,checkOutGeo:geo,autoCheckOut:true,updatedAt:stamp};
-  const description=(kind==="in"?"حضور تلقائي ":"انصراف تلقائي ")+staff.name+" — "+Math.round(distance)+"م من مركز المدرسة";
-  return{...p,staffAttendance:old?list.map(x=>x.id===old.id?next:x):[...list,next],audit:[audit(kind==="in"?"حضور تلقائي":"انصراف تلقائي","حضور الموظفين",description,who),...(p.audit||[])].slice(0,1000)}
- });
-}
-function AutoStaffGeofence({db,setDb}){
- const stateRef=useRef({inside:0,outside:0,lastAction:""}),dbRef=useRef(db);dbRef.current=db;
+function localTimeHM(){return new Date().toLocaleTimeString("en-GB",{timeZone:SCHOOL_TZ,hour:"2-digit",minute:"2-digit",hour12:false})}
+function AutoStaffGeofence({db}){
+ const stateRef=useRef({inside:0,outside:0,pending:false,lastAction:""}),dbRef=useRef(db);dbRef.current=db;
  useEffect(()=>{
   if(!centralEnabled||!navigator.geolocation)return;
   const profile=currentProfile();if(!profile||profile.role==="مدير المدرسة")return;
@@ -130,6 +117,18 @@ function AutoStaffGeofence({db,setDb}){
   const g=db.school?.geofence||{},lat=Number(g.lat),lng=Number(g.lng),radius=Math.max(20,Number(g.radiusM||120)),maxAccuracy=Math.max(20,Number(g.maxAccuracyM||80)),exitBuffer=Math.max(10,Number(g.exitBufferM||25)),samples=Math.max(1,Number(g.autoSamples||2));
   if(!Number.isFinite(lat)||!Number.isFinite(lng)||!lat||!lng)return;
   let stopped=false;
+  const commit=async(kind,pos,distance)=>{
+   if(stateRef.current.pending||stopped)return;
+   stateRef.current.pending=true;
+   try{
+    const result=await recordStaffGeofenceEvent(kind==="in"?"enter":"exit",pos,"web-browser");
+    if(result?.accepted||result?.reason==="already_checked_in"||result?.reason==="invalid_check_out")stateRef.current.lastAction=kind;
+    window.dispatchEvent(new CustomEvent("alribat-auto-attendance-status",{detail:result?.accepted?(kind==="in"?"تم تسجيل الحضور تلقائيًا":"تم تسجيل الانصراف تلقائيًا"):"تمت مزامنة حالة الحضور"}));
+   }catch(e){
+    console.error("Secure geofence attendance failed",e);
+    window.dispatchEvent(new CustomEvent("alribat-auto-attendance-status",{detail:e?.message||"تعذر تسجيل الحضور التلقائي"}));
+   }finally{stateRef.current.pending=false}
+  };
   const handle=pos=>{
    if(stopped||!pos?.coords||!Number.isFinite(pos.coords.accuracy)||pos.coords.accuracy>maxAccuracy)return;
    const distance=geoDistanceM(lat,lng,pos.coords.latitude,pos.coords.longitude),inside=distance<=radius,outside=distance>=radius+exitBuffer;
@@ -137,10 +136,11 @@ function AutoStaffGeofence({db,setDb}){
    else if(outside){stateRef.current.outside++;stateRef.current.inside=0}
    else{stateRef.current.inside=0;stateRef.current.outside=0;return}
    const current=dbRef.current,rec=(current.staffAttendance||[]).find(x=>x.staffId===staff.id&&x.date===today());
-   if(inside&&stateRef.current.inside>=samples&&!rec?.checkIn){
-    stateRef.current.inside=0;stateRef.current.lastAction="in";autoAttendanceWrite(setDb,staff,profile,"in",pos,distance);
-   }else if(outside&&stateRef.current.outside>=samples&&rec?.checkIn&&!rec?.checkOut){
-    stateRef.current.outside=0;stateRef.current.lastAction="out";autoAttendanceWrite(setDb,staff,profile,"out",pos,distance);
+   const hasIn=Boolean(rec?.checkIn)||stateRef.current.lastAction==="in",hasOut=Boolean(rec?.checkOut)||stateRef.current.lastAction==="out";
+   if(inside&&stateRef.current.inside>=samples&&!hasIn){
+    stateRef.current.inside=0;commit("in",pos,distance);
+   }else if(outside&&stateRef.current.outside>=samples&&hasIn&&!hasOut){
+    stateRef.current.outside=0;commit("out",pos,distance);
    }
   };
   const error=e=>{if(e?.code===1)window.dispatchEvent(new CustomEvent("alribat-auto-attendance-status",{detail:"يجب السماح بالموقع لتفعيل الحضور التلقائي"}))};
@@ -166,7 +166,7 @@ function App(){
  const navigate=next=>{if(!next||next===active)return;setPrevActive(active);setActive(next);setSearch("")};
  const goBack=()=>{const next=allowed.includes(prevActive)&&prevActive!==active?prevActive:"الرئيسية";setActive(next);setPrevActive("الرئيسية");setSearch("")};
  const openNotes=()=>{setDb(p=>({...p,notifications:(p.notifications||[]).map(n=>({...n,read:true}))}));setModal({type:"notes"})};
- return <div className="app"><AutoStaffGeofence db={db} setDb={setDb}/><aside className="sidebar"><div className="brand"><div className="logo originalSchoolLogo"><img src={ORIGINAL_LOGO_DATA} alt="شعار مدرسة الرباط الأصلي"/></div><div><b>مدرسة الرباط</b><span>الإدارة والمالية</span></div></div><nav>{nav.map(x=><button key={x[0]} className={active===x[0]?"active":""} onClick={()=>navigate(x[0])}><i>{x[1]}</i><span>{x[0]}</span></button>)}</nav><div className="sideFoot ownershipMini"><span>الإصدار</span><b>Central v1.15.0</b><img className="miniSignature" src="./alribat-owner-signature.svg" alt="توقيع المالك"/><small>© 2026 Eng. Osama Ismail<br/>جميع الحقوق والملكية الفكرية محفوظة</small></div></aside><main><header><div className="headerTitle">{active!=="الرئيسية"&&<button className="backNav" onClick={goBack} aria-label="رجوع">← رجوع</button>}<span className="mobileTitle">مدرسة الرباط</span><h2>{active}</h2><small>النظام المالي والإداري المركزي</small></div><div className="headerActions"><button className="bell" onClick={openNotes}>🔔{db.notifications.some(x=>!x.read)&&<em>{db.notifications.filter(x=>!x.read).length}</em>}</button><div className="user"><div className="avatar">{(user.name||"م")[0]}</div><div><b>{user.name}</b><span>{user.role}</span></div></div></div></header><div className="content">
+ return <div className="app"><AutoStaffGeofence db={db}/><aside className="sidebar"><div className="brand"><div className="logo originalSchoolLogo"><img src={ORIGINAL_LOGO_DATA} alt="شعار مدرسة الرباط الأصلي"/></div><div><b>مدرسة الرباط</b><span>الإدارة والمالية</span></div></div><nav>{nav.map(x=><button key={x[0]} className={active===x[0]?"active":""} onClick={()=>navigate(x[0])}><i>{x[1]}</i><span>{x[0]}</span></button>)}</nav><div className="sideFoot ownershipMini"><span>الإصدار</span><b>Central v1.15.0</b><img className="miniSignature" src="./alribat-owner-signature.svg" alt="توقيع المالك"/><small>© 2026 Eng. Osama Ismail<br/>جميع الحقوق والملكية الفكرية محفوظة</small></div></aside><main><header><div className="headerTitle">{active!=="الرئيسية"&&<button className="backNav" onClick={goBack} aria-label="رجوع">← رجوع</button>}<span className="mobileTitle">مدرسة الرباط</span><h2>{active}</h2><small>النظام المالي والإداري المركزي</small></div><div className="headerActions"><button className="bell" onClick={openNotes}>🔔{db.notifications.some(x=>!x.read)&&<em>{db.notifications.filter(x=>!x.read).length}</em>}</button><div className="user"><div className="avatar">{(user.name||"م")[0]}</div><div><b>{user.name}</b><span>{user.role}</span></div></div></div></header><div className="content">
  {active==="الرئيسية"&&<Dashboard db={db} go={navigate} user={user} setModal={setModal}/>}
  {active==="الطلاب"&&<Students db={db} search={search} setSearch={setSearch} mutate={mutate} setModal={setModal}/>}
  {active==="الرسوم والتحصيل"&&<Finance db={db} search={search} setSearch={setSearch} mutate={mutate} setModal={setModal} notify={notify}/>}
@@ -195,7 +195,7 @@ function Dashboard({db,go,user,setModal}){
  return <>
   <section className="dashHero">
    <div className="dashWelcome"><span className="eyebrow">مرحبًا بك في نظام مدرسة الرباط</span><h1>مرحباً {user.name}</h1><p>إدارة مالية وإدارية موحدة، متابعة فورية، وصلاحيات حسب الدور.</p></div>
-   <div className="dashDate"><b>{new Date().toLocaleDateString("ar-SA",{weekday:"long"})}</b><span>{new Date().toLocaleDateString("ar-SA")}</span><small>{db.school.academicYear}</small></div>
+   <div className="dashDate"><b>{new Date().toLocaleDateString("ar-SA",{timeZone:SCHOOL_TZ,weekday:"long"})}</b><span>{new Date().toLocaleDateString("ar-SA",{timeZone:SCHOOL_TZ})}</span><small>{db.school.academicYear}</small></div>
   </section>
   <div className="cards dashMetrics">
    <Metric t="الطلاب النشطون" v={activeStudents.length} s="طالب وطالبة" icon="👥" tone="blue"/>
