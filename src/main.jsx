@@ -181,7 +181,7 @@ function App(){
  <div className="systemOwnership"><img src="./alribat-owner-signature.svg" alt="توقيع المالك"/><div><b>© 2026 Eng. Osama Ismail — جميع الحقوق محفوظة</b><span>الملكية الفكرية وتصميم وبرمجة نظام مدرسة الرباط موثقة داخل المستودع وسجل الإصدارات.</span></div></div>
  </div></main>
  <Dialogs modal={modal} setModal={setModal} db={db} mutate={mutate} notify={notify} user={user}/>
- <PrintBrand/>\n <input ref={fileRef} hidden type="file" accept="application/json" onChange={async e=>{try{const restored=await restore(e.target.files[0]);setDb(p=>centralEnabled?{...restored,users:p.users,central:p.central}:restored);alert("تم استيراد النسخة الاحتياطية مع الحفاظ على الحساب والصلاحيات المركزية")}catch(x){alert(x.message)}e.target.value=""}}/>
+ <PrintBrand/>\n <input ref={fileRef} hidden type="file" accept="application/json" onChange={async e=>{try{const restored=await restore(e.target.files[0]);setDb(p=>{const base=centralEnabled?{...restored,users:p.users,central:p.central}:restored;return{...base,audit:[audit("استيراد","النسخ الاحتياطي","استيراد نسخة احتياطية مع الحفاظ على هوية الحساب المركزي",user.name),...(base.audit||[])].slice(0,1000)}});alert("تم استيراد النسخة الاحتياطية مع الحفاظ على الحساب والصلاحيات المركزية")}catch(x){alert(x.message)}e.target.value=""}}/>
  </div>
 }
 
