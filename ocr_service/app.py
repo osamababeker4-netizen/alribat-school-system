@@ -431,7 +431,8 @@ def _ledger_rows(image: Image.Image):
             pad_y = max(3, int(height * 0.08))
             yy0, yy1 = max(0, y0 + pad_y), min(h, y1 - pad_y)
             roi = dark[yy0:yy1, name_x0:name_x1]
-            if roi.size == 0 or float(roi.mean()) < 0.008:
+            density = float(roi.mean()) if roi.size else 0.0
+            if roi.size == 0 or density < 0.03:
                 continue
             crop = _normalize_line_crop(clean.crop((name_x0, yy0, name_x1, yy1)))
             if crop is None:
@@ -441,6 +442,7 @@ def _ledger_rows(image: Image.Image):
                 "y1": yy1,
                 "y": (yy0 + yy1) / 2,
                 "crop": crop,
+                "inkDensity": density,
             })
 
     # Fallback for faint/perspective-distorted ruled lines.
@@ -458,6 +460,10 @@ def _ledger_rows(image: Image.Image):
                 continue
             pad = max(5, int((y1 - y0) * 0.34))
             yy0, yy1 = max(0, y0 - pad), min(h, y1 + pad)
+            band = dark[yy0:yy1, name_x0:name_x1]
+            density = float(band.mean()) if band.size else 0.0
+            if density < 0.03:
+                continue
             crop = _normalize_line_crop(clean.crop((name_x0, yy0, name_x1, yy1)))
             if crop is None:
                 continue
@@ -466,6 +472,7 @@ def _ledger_rows(image: Image.Image):
                 "y1": yy1,
                 "y": (yy0 + yy1) / 2,
                 "crop": crop,
+                "inkDensity": density,
             })
 
     # Merge accidental duplicate bands.
@@ -476,6 +483,23 @@ def _ledger_rows(image: Image.Image):
             continue
         dedup.append(spec)
         last_y = spec["y"]
+
+    if len(dedup) >= 2:
+        gaps = [dedup[i]["y"] - dedup[i-1]["y"] for i in range(1, len(dedup))]
+        normal_gaps = [g for g in gaps if g > 0]
+        pitch = float(np.median(normal_gaps)) if normal_gaps else max(20.0, h * 0.025)
+        blocks = []
+        block = [dedup[0]]
+        for spec in dedup[1:]:
+            if spec["y"] - block[-1]["y"] <= max(pitch * 2.25, h * 0.07):
+                block.append(spec)
+            else:
+                blocks.append(block)
+                block = [spec]
+        blocks.append(block)
+        # Prefer the largest block; for ties prefer the earlier block because
+        # student entries start near the top of the ledger.
+        dedup = max(blocks, key=lambda b: (len(b), -b[0]["y"]))
 
     orig_w = max(1, int(page_meta.get("originalWidth") or w))
     orig_h = max(1, int(page_meta.get("originalHeight") or h))
