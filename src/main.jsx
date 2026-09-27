@@ -302,14 +302,20 @@ async function recognizeArabicHandwriting(source,setProgress,label="الصورة
   const res=await fetch(HANDWRITING_OCR_URL+"/ocr",{method:"POST",headers:{authorization:"Bearer "+session.access_token},body:form,signal:ctrl.signal});
   let data={};try{data=await res.json()}catch{}
   if(!res.ok)throw new Error(data?.detail||"تعذر تشغيل محرك الخط اليدوي");
+  const layout=data.layout||{};
   return (data.rows||[]).map((r,i)=>({
    name:cleanArabicNameCandidate(r.name||""),
-   registrationFee:0,tuitionFee:0,remainingFee:0,grade:"",className:"",
+   birthDate:"",studentPhone:"",
+   registrationFee:0,tuitionFee:0,firstInstallment:0,secondInstallment:0,remainingFee:0,
+   grade:"",className:"",notebookFields:{},
    _ocrConfidence:Number(r.quality||0),_ocrScore:Number(r.quality||0),
    _ocrReason:r.reviewNeeded?"قراءة خط يدوي تحتاج مراجعة":"",
    _reviewNeeded:Boolean(r.reviewNeeded),
-   _ocrSource:"arabic-htr",
-   _htrRow:Number(r.row||i+1)
+   _ocrSource:"arabic-htr-v2",
+   _htrRow:Number(r.row||i+1),
+   _y:Number(r.y||0),
+   _rowBounds:[Number(r.y0||0),Number(r.y1||0)],
+   _htrLayout:layout
   })).filter(r=>r.name);
  }finally{clearTimeout(timer)}
 }
@@ -355,6 +361,113 @@ function paddlePolyBox(poly){
 function paddleConfidence(score){
  const n=Number(score||0);
  return Math.max(0,Math.min(100,n<=1?n*100:n));
+}
+
+async function sourceDimensions(source){
+ if(source instanceof HTMLCanvasElement)return{width:source.width||1,height:source.height||1};
+ const bitmap=await createImageBitmap(source);
+ const dims={width:bitmap.width||1,height:bitmap.height||1};
+ if(bitmap.close)bitmap.close();
+ return dims;
+}
+function paddleNormalizedItems(result,dims){
+ return (result?.items||[]).map((it,i)=>{
+  const text=cleanImportText(it?.text||"");
+  const box=paddlePolyBox(it?.poly);
+  return{text,score:paddleConfidence(it?.score),box,i,
+   xn:box.cx/Math.max(1,dims.width),yn:box.cy/Math.max(1,dims.height),
+   wn:box.w/Math.max(1,dims.width),hn:box.h/Math.max(1,dims.height)};
+ }).filter(x=>x.text);
+}
+function normalizeHeaderText(text){
+ return String(text||"").replace(/[أإآٱ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه").replace(/ـ/g," ").replace(/\s+/g," ").trim().toLowerCase();
+}
+function ledgerFieldFromHeader(text){
+ const t=normalizeHeaderText(text);
+ if(/اسم/.test(t))return"name";
+ if(/ميلاد/.test(t))return"birthDate";
+ if(/تلفون|هاتف|جوال|موبايل|فون/.test(t))return"studentPhone";
+ if(/تسجيل/.test(t))return"registrationFee";
+ if(/رسوم.*دراس|دراس.*رسوم|دراسيه|دراسي/.test(t))return"tuitionFee";
+ if(/قسط.*اول|اول.*قسط/.test(t))return"firstInstallment";
+ if(/قسط.*ثان|ثاني.*قسط|تاني.*قسط/.test(t))return"secondInstallment";
+ if(/متبقي|باقي|رصيد/.test(t))return"remainingFee";
+ return"";
+}
+function ledgerIntervals(layout){
+ const raw=[0,...(Array.isArray(layout?.columns)?layout.columns:[]),1]
+  .map(Number).filter(Number.isFinite).filter(x=>x>=0&&x<=1).sort((a,b)=>a-b);
+ const bounds=[];
+ for(const x of raw){if(!bounds.length||x-bounds[bounds.length-1]>.018)bounds.push(x)}
+ if(bounds[0]!==0)bounds.unshift(0);
+ if(bounds[bounds.length-1]!==1)bounds.push(1);
+ return bounds.slice(0,-1).map((x,i)=>({x0:x,x1:bounds[i+1],i,xc:(x+bounds[i+1])/2}));
+}
+function cellText(items){
+ return [...items].sort((a,b)=>b.xn-a.xn).map(x=>x.text).join(" ").replace(/\s+/g," ").trim();
+}
+function normalizeNotebookDate(text){
+ let t=westernDigits(String(text||"")).replace(/[٫.\\-]/g,"/").replace(/\s+/g,"").replace(/[^0-9/]/g,"");
+ const parts=t.split("/").filter(Boolean);
+ if(parts.length===3){
+  let[a,b,c]=parts;
+  if(a.length===4)return[a,b.padStart(2,"0"),c.padStart(2,"0")].join("-");
+  if(c.length===4)return[c,b.padStart(2,"0"),a.padStart(2,"0")].join("-");
+ }
+ return t;
+}
+function normalizeNotebookPhone(text){
+ const d=westernDigits(String(text||"")).replace(/\D/g,"");
+ return d.length>=7?d:"";
+}
+function buildLedgerColumnMap(items,layout,htrRows){
+ const intervals=ledgerIntervals(layout);
+ if(!intervals.length)return{intervals,fields:new Map(),labels:new Map()};
+ const firstY=Math.min(...htrRows.map(r=>Number(r._rowBounds?.[0]||r._y||1)).filter(Number.isFinite));
+ const headerCut=Number.isFinite(firstY)?Math.max(.06,firstY-.004):.18;
+ const fields=new Map(),labels=new Map();
+ for(const intv of intervals){
+  const header=cellText(items.filter(x=>x.xn>=intv.x0&&x.xn<intv.x1&&x.yn<headerCut&&x.yn>.025));
+  labels.set(intv.i,header||("عمود "+(intv.i+1)));
+  const f=ledgerFieldFromHeader(header);
+  if(f)fields.set(intv.i,f);
+ }
+ const nameMid=Array.isArray(layout?.nameColumn)?(Number(layout.nameColumn[0])+Number(layout.nameColumn[1]))/2:0.82;
+ const nameInt=intervals.find(x=>nameMid>=x.x0&&nameMid<x.x1)||intervals[intervals.length-1];
+ fields.set(nameInt.i,"name");
+ labels.set(nameInt.i,labels.get(nameInt.i)||"الاسم");
+
+ // Only fill missing semantics by the known Alribat ledger order to the left
+ // of the name column. Explicitly recognised headers always win.
+ const fallback=["birthDate","studentPhone","registrationFee","firstInstallment","secondInstallment"];
+ for(let step=1;step<=fallback.length;step++){
+  const idx=nameInt.i-step;
+  if(idx<0)break;
+  if(!fields.has(idx))fields.set(idx,fallback[step-1]);
+ }
+ return{intervals,fields,labels};
+}
+function mergeLedgerDetails(htrRows,paddleItems,layout){
+ if(!htrRows.length)return htrRows;
+ const{intervals,fields,labels}=buildLedgerColumnMap(paddleItems,layout,htrRows);
+ return htrRows.map(row=>{
+  const[y0,y1]=row._rowBounds||[Math.max(0,(row._y||0)-.025),Math.min(1,(row._y||0)+.025)];
+  const rowItems=paddleItems.filter(x=>x.yn>=y0-.006&&x.yn<=y1+.006);
+  const notebookFields={};
+  const patch={};
+  for(const intv of intervals){
+   const text=cellText(rowItems.filter(x=>x.xn>=intv.x0&&x.xn<intv.x1));
+   if(!text)continue;
+   const label=labels.get(intv.i)||("عمود "+(intv.i+1));
+   notebookFields[label]=text;
+   const field=fields.get(intv.i);
+   if(!field||field==="name")continue;
+   if(field==="birthDate")patch.birthDate=normalizeNotebookDate(text);
+   else if(field==="studentPhone")patch.studentPhone=normalizeNotebookPhone(text);
+   else patch[field]=importMoney(text);
+  }
+  return{...row,...patch,notebookFields:{...(row.notebookFields||{}),...notebookFields},_detailsSource:"ledger-row-columns"};
+ });
 }
 function rowsFromPaddleResult(result){
  const items=(result?.items||[]).map((it,i)=>{
@@ -426,7 +539,8 @@ function rowsFromPaddleResult(result){
 }
 async function recognizeWithPaddle(source,setProgress,label){
  const ocr=await getStudentPaddleOcr(setProgress);
- setProgress("قراءة الخط العربي المتقدم — "+label+"...");
+ const dims=await sourceDimensions(source);
+ setProgress("قراءة تفاصيل الصف والأعمدة — "+label+"...");
  const options={
   textDetLimitSideLen:1920,
   textDetLimitType:"max",
@@ -437,15 +551,18 @@ async function recognizeWithPaddle(source,setProgress,label){
  };
  const[result]=await ocr.predict(source,options);
  let rows=rowsFromPaddleResult(result);
+ let items=paddleNormalizedItems(result,dims);
  const good=rows.filter(r=>!r._reviewNeeded).length;
- if(good>=Math.max(2,Math.ceil(rows.length*.58)))return rows;
- setProgress("تحسين الصورة وإعادة قراءة الأسماء الصعبة...");
+ if(good>=Math.max(2,Math.ceil(rows.length*.58)))return{rows,items,dims,result};
+ setProgress("تحسين الصورة وإعادة قراءة تفاصيل الصف...");
  const contrast=await preprocessStudentImage(source,"contrast");
+ const retryDims={width:contrast.width||dims.width,height:contrast.height||dims.height};
  const[retry]=await ocr.predict(contrast,{...options,textDetThresh:.16,textDetBoxThresh:.2,textRecScoreThresh:.08});
  const second=rowsFromPaddleResult(retry);
- return scoreOcrResult(second,second.reduce((n,r)=>n+(r._ocrConfidence||0),0)/Math.max(1,second.length))>
-        scoreOcrResult(rows,rows.reduce((n,r)=>n+(r._ocrConfidence||0),0)/Math.max(1,rows.length))
-        ?second:rows;
+ const secondItems=paddleNormalizedItems(retry,retryDims);
+ const useSecond=scoreOcrResult(second,second.reduce((n,r)=>n+(r._ocrConfidence||0),0)/Math.max(1,second.length))>
+        scoreOcrResult(rows,rows.reduce((n,r)=>n+(r._ocrConfidence||0),0)/Math.max(1,rows.length));
+ return useSecond?{rows:second,items:secondItems,dims:retryDims,result:retry}:{rows,items,dims,result};
 }
 
 let studentOcrWorkerPromise=null;
@@ -518,41 +635,38 @@ function scoreOcrResult(rows,confidence){
  return good*120+avg+Math.min(100,confidence);
 }
 async function recognizeStudentSource(source,setProgress,label="الصورة"){
- let paddleRows=[];
- try{
-  paddleRows=await recognizeWithPaddle(source,setProgress,label);
-  const paddleGood=paddleRows.filter(r=>!r._reviewNeeded).length;
-  if(paddleGood>=Math.max(2,Math.ceil(paddleRows.length*.55)))return paddleRows;
- }catch(e){console.warn("PaddleOCR Arabic fallback",e)}
  let htrRows=[];
  try{htrRows=await recognizeArabicHandwriting(source,setProgress,label)}catch(e){console.warn("Arabic HTR fallback",e)}
- if(htrRows.length>=2){
-  if(!paddleRows.length)return htrRows;
-  const htrScore=scoreOcrResult(htrRows,htrRows.reduce((n,r)=>n+(r._ocrConfidence||0),0)/Math.max(1,htrRows.length));
-  const paddleScore=scoreOcrResult(paddleRows,paddleRows.reduce((n,r)=>n+(r._ocrConfidence||0),0)/Math.max(1,paddleRows.length));
-  if(htrScore>paddleScore)return htrRows;
+ let paddlePack=null;
+ try{paddlePack=await recognizeWithPaddle(source,setProgress,label)}catch(e){console.warn("PaddleOCR detail fallback",e)}
+
+ if(htrRows.length){
+  const layout=htrRows[0]?._htrLayout||{};
+  if(paddlePack?.items?.length){
+   setProgress("ربط الاسم وتاريخ الميلاد والجوال والرسوم بنفس الصف...");
+   return mergeLedgerDetails(htrRows,paddlePack.items,layout);
+  }
+  return htrRows;
  }
- // Tesseract remains only as a final compatibility fallback for devices on
- // which the Arabic PP-OCRv5 runtime cannot initialize.
+
+ // If the handwriting service is unavailable, keep a browser-side fallback
+ // instead of blocking the user's import entirely.
+ if(paddlePack?.rows?.length)return paddlePack.rows;
+
  const worker=await getStudentOcrWorker(setProgress);
- setProgress("تشغيل القراءة الاحتياطية للأرقام والجدول...");
+ setProgress("تشغيل القراءة الاحتياطية...");
  const contrast=await preprocessStudentImage(source,"contrast");
  await worker.setParameters({tessedit_pageseg_mode:"6"});
  let first=await worker.recognize(contrast),conf1=Number(first.data?.confidence||0);
  let rows1=rowsFromPlainText(first.data?.text||"",{confidence:conf1,source:"tesseract-fallback"});
- const good1=rows1.filter(r=>!r._reviewNeeded).length;
- if(good1<Math.max(2,Math.ceil(rows1.length*.65))||conf1<58){
-  setProgress("إعادة المحاولة الاحتياطية بدقة أعلى...");
+ if(rows1.filter(r=>!r._reviewNeeded).length<Math.max(2,Math.ceil(rows1.length*.65))||conf1<58){
   const binary=await preprocessStudentImage(source,"binary");
   await worker.setParameters({tessedit_pageseg_mode:"11"});
   const second=await worker.recognize(binary),conf2=Number(second.data?.confidence||0);
   const rows2=rowsFromPlainText(second.data?.text||"",{confidence:conf2,source:"tesseract-accurate-fallback"});
   if(scoreOcrResult(rows2,conf2)>scoreOcrResult(rows1,conf1))rows1=rows2;
  }
- if(!paddleRows.length)return rows1;
- const tScore=scoreOcrResult(rows1,conf1);
- const pConf=paddleRows.reduce((n,r)=>n+(r._ocrConfidence||0),0)/Math.max(1,paddleRows.length);
- return scoreOcrResult(paddleRows,pConf)>=tScore?paddleRows:rows1;
+ return rows1;
 }
 
 async function importPdfFile(file,setProgress){
