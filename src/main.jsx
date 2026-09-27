@@ -831,9 +831,11 @@ function StudentEditModal({student,db,mutate,close}){
   <F label="الصف"><input required value={f.grade||""} onChange={e=>set("grade",e.target.value)}/></F>
   <F label="تاريخ الميلاد"><input value={f.birthDate||""} onChange={e=>set("birthDate",e.target.value)}/></F>
   <F label="هاتف الطالب"><input inputMode="tel" value={f.studentPhone||""} onChange={e=>set("studentPhone",e.target.value)}/></F>
-  <F label="رسوم التسجيل"><input type="number" min="0" value={f.registrationFee||""} onChange={e=>set("registrationFee",e.target.value)}/></F>
-  <F label="القسط الأول"><input type="number" min="0" value={f.tuitionFee||""} onChange={e=>set("tuitionFee",e.target.value)}/></F>
-  <F label="المستحقات"><input type="number" min="0" value={f.remainingFee||""} onChange={e=>set("remainingFee",e.target.value)}/></F>
+  <F label="رسوم التسجيل"><input type="number" min="0" value={f.registrationFee??""} onChange={e=>set("registrationFee",e.target.value)}/></F>
+  <F label="رسوم الدراسة"><input type="number" min="0" value={f.tuitionFee??""} onChange={e=>set("tuitionFee",e.target.value)}/></F>
+  <F label="القسط الأول"><input type="number" min="0" value={f.firstInstallment??""} onChange={e=>set("firstInstallment",e.target.value)}/></F>
+  <F label="القسط الثاني"><input type="number" min="0" value={f.secondInstallment??""} onChange={e=>set("secondInstallment",e.target.value)}/></F>
+  <F label="المتبقي"><input type="number" min="0" value={f.remainingFee??""} onChange={e=>set("remainingFee",e.target.value)}/></F>
   <F label="ولي الأمر"><input value={f.parentName||""} onChange={e=>set("parentName",e.target.value)}/></F>
   <F label="هاتف ولي الأمر"><input inputMode="tel" value={f.parentPhone||""} onChange={e=>set("parentPhone",e.target.value)}/></F>
   <Actions close={close}/>
