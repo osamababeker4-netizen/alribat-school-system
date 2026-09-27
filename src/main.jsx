@@ -1,4 +1,4 @@
-import{centralEnabled,currentProfile,inviteSchoolUser,setSchoolUserActive,updateMyPhone}from"./central.js";
+import{centralEnabled,currentProfile,getSession,inviteSchoolUser,setSchoolUserActive,updateMyPhone}from"./central.js";
 import React,{useEffect,useMemo,useRef,useState}from"react";
 import{audit,backup,balance,clear,csv,fstatus,id,load,money,paid,restore,save,total}from"./store.js";
 import ORIGINAL_LOGO_DATA from"./originalLogo.js";
@@ -283,6 +283,37 @@ async function importExcelFile(file){
  return rows.map(r=>({...r,_ocrConfidence:100,_ocrScore:100,_reviewNeeded:false,_ocrSource:"excel"}));
 }
 
+const HANDWRITING_OCR_URL=String(import.meta.env.VITE_OCR_SERVICE_URL||"").replace(/\/$/,"");
+async function sourceToUploadBlob(source){
+ if(source instanceof Blob)return source;
+ if(source instanceof HTMLCanvasElement)return await new Promise((resolve,reject)=>source.toBlob(b=>b?resolve(b):reject(new Error("تعذر تجهيز الصورة")),"image/jpeg",.92));
+ throw new Error("مصدر الصورة غير مدعوم");
+}
+async function recognizeArabicHandwriting(source,setProgress,label="الصورة"){
+ if(!HANDWRITING_OCR_URL||!centralEnabled)return[];
+ const session=await getSession();
+ if(!session?.access_token)return[];
+ const blob=await sourceToUploadBlob(source);
+ const form=new FormData();
+ form.append("file",blob,blob.name||"notebook.jpg");
+ const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),150000);
+ try{
+  setProgress("قراءة الخط العربي اليدوي بالذكاء المتخصص — "+label+"...");
+  const res=await fetch(HANDWRITING_OCR_URL+"/ocr",{method:"POST",headers:{authorization:"Bearer "+session.access_token},body:form,signal:ctrl.signal});
+  let data={};try{data=await res.json()}catch{}
+  if(!res.ok)throw new Error(data?.detail||"تعذر تشغيل محرك الخط اليدوي");
+  return (data.rows||[]).map((r,i)=>({
+   name:cleanArabicNameCandidate(r.name||""),
+   registrationFee:0,tuitionFee:0,remainingFee:0,grade:"",className:"",
+   _ocrConfidence:Number(r.quality||0),_ocrScore:Number(r.quality||0),
+   _ocrReason:r.reviewNeeded?"قراءة خط يدوي تحتاج مراجعة":"",
+   _reviewNeeded:Boolean(r.reviewNeeded),
+   _ocrSource:"arabic-htr",
+   _htrRow:Number(r.row||i+1)
+  })).filter(r=>r.name);
+ }finally{clearTimeout(timer)}
+}
+
 let studentOcrWorkerPromise=null;
 let studentOcrProgressSink=null;
 async function getStudentOcrWorker(setProgress){
@@ -353,13 +384,27 @@ function scoreOcrResult(rows,confidence){
  return good*120+avg+Math.min(100,confidence);
 }
 async function recognizeStudentSource(source,setProgress,label="الصورة"){
+ let htrRows=[];
+ try{htrRows=await recognizeArabicHandwriting(source,setProgress,label)}catch(e){console.warn("Arabic HTR fallback",e)}
  const worker=await getStudentOcrWorker(setProgress);
- setProgress("تهيئة "+label+" وتحسين الوضوح...");
+ setProgress("تهيئة "+label+" وتحسين الأرقام والجدول...");
  const contrast=await preprocessStudentImage(source,"contrast");
  await worker.setParameters({tessedit_pageseg_mode:"6"});
- setProgress("قراءة "+label+" — المرحلة السريعة...");
+ setProgress(htrRows.length?"مطابقة الأسماء اليدوية مع بيانات الجدول...":"قراءة "+label+" — المرحلة السريعة...");
  let first=await worker.recognize(contrast),conf1=Number(first.data?.confidence||0);
  let rows1=rowsFromPlainText(first.data?.text||"",{confidence:conf1,source:"ocr-fast"});
+ if(htrRows.length>=2){
+  return htrRows.map((h,i)=>{
+   const n=rows1[i]||{};
+   return{...h,
+    registrationFee:num(n.registrationFee),
+    tuitionFee:num(n.tuitionFee),
+    remainingFee:num(n.remainingFee),
+    grade:n.grade||"",
+    className:n.className||""
+   };
+  });
+ }
  const good1=rows1.filter(r=>!r._reviewNeeded).length;
  if(good1>=Math.max(2,Math.ceil(rows1.length*.65))&&conf1>=58)return rows1;
  setProgress("إعادة تحسين المناطق غير الواضحة تلقائيًا...");
@@ -370,6 +415,7 @@ async function recognizeStudentSource(source,setProgress,label="الصورة"){
  let rows2=rowsFromPlainText(second.data?.text||"",{confidence:conf2,source:"ocr-accurate"});
  return scoreOcrResult(rows2,conf2)>scoreOcrResult(rows1,conf1)?rows2:rows1;
 }
+
 async function importPdfFile(file,setProgress){
  const pdfjs=await import(/* @vite-ignore */"https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs");
  pdfjs.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
@@ -450,7 +496,7 @@ function StudentImportModal({db,mutate,close}){
   {progress&&<div className="importProgress">⏳ {progress}</div>}{error&&<div className="importError">⚠️ {error}</div>}
   {rows.length>0&&<><div className="importSummary"><span>الصف <b>{cleanImportText(targetGrade)}</b></span><span>القائمة <b>{targetGender}</b></span><span>جديد <b>{created}</b></span><span>تحديث <b>{updated}</b></span><span>بحاجة مراجعة <b>{review.length}</b></span><span>مكرر <b>{duplicates}</b></span><span>إجمالي <b>{decorated.length}</b></span></div>
   <div className="tableWrap importPreview"><table><thead><tr><th>#</th><th>اسم الطالب</th><th>الثقة</th><th>الجنس</th><th>رسوم التسجيل</th><th>الرسوم الدراسية</th><th>المتبقي</th><th>الصف</th><th>الفصل</th><th>الحالة</th><th></th></tr></thead><tbody>{decorated.map((r,i)=><tr key={r._id} className={r._duplicateFile?"importDuplicate":r._reviewNeeded?"importReview":r._existingId?"importExisting":""}><td>{i+1}</td><td><input value={r.name} onChange={e=>edit(r._id,"name",e.target.value)}/>{r._ocrReason&&r._reviewNeeded?<small className="ocrReason">{r._ocrReason}</small>:null}</td><td><span className={"ocrConfidence "+(r._reviewNeeded?"low":(r._ocrScore||0)>=80?"high":"mid")}>{Math.round(r._ocrScore||0)}%</span></td><td><select value={r.gender||targetGender} onChange={e=>edit(r._id,"gender",e.target.value)}><option value="بنين">بنين</option><option value="بنات">بنات</option></select></td><td><input dir="ltr" type="number" min="0" value={r.registrationFee||""} onChange={e=>edit(r._id,"registrationFee",e.target.value)}/></td><td><input dir="ltr" type="number" min="0" value={r.tuitionFee||""} onChange={e=>edit(r._id,"tuitionFee",e.target.value)}/></td><td><input dir="ltr" type="number" min="0" value={r.remainingFee||""} onChange={e=>edit(r._id,"remainingFee",e.target.value)}/></td><td><input value={r.grade||""} onChange={e=>edit(r._id,"grade",e.target.value)}/></td><td><input value={r.className||""} onChange={e=>edit(r._id,"className",e.target.value)}/></td><td><S tone={r._duplicateFile||r._reviewNeeded?"bad":r._existingId?"warn":"ok"}>{r._status}</S></td><td><button className="danger" onClick={()=>remove(r._id)}>حذف</button></td></tr>)}</tbody></table></div>
-  <div className="importNote">يتم حفظ الأسماء الموثوقة فقط. أي قراءة ضعيفة تُعلّم «بحاجة مراجعة» ولا تُحفظ حتى تصحيح الاسم يدويًا. المحرك يعيد القراءة تلقائيًا بدقة أعلى عندما تكون الثقة منخفضة.</div><div className="modalActions"><button onClick={close}>إلغاء</button><button className="primary" onClick={commit}>تنزيل وحفظ {valid.length} طالب</button></div></>}
+  <div className="importNote">يتم حفظ الأسماء الموثوقة فقط. أي قراءة ضعيفة تُعلّم «بحاجة مراجعة» ولا تُحفظ حتى تصحيح الاسم يدويًا. الأسماء المكتوبة بخط اليد تُقرأ بمحرك HTR عربي مستقل، ويُستخدم OCR الجدولي للأرقام والحقول فقط. أي اسم غير موثوق يبقى للمراجعة.</div><div className="modalActions"><button onClick={close}>إلغاء</button><button className="primary" onClick={commit}>تنزيل وحفظ {valid.length} طالب</button></div></>}
  </div></Modal>
 }
 
