@@ -3,7 +3,13 @@ import os
 import re
 import sys
 import threading
+import gc
 from functools import lru_cache
+
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 
 import httpx
 import numpy as np
@@ -67,12 +73,30 @@ def _load_model():
         )
         if local not in sys.path:
             sys.path.insert(0, local)
+        import torch
+        torch.set_num_threads(1)
+        try:
+            torch.set_num_interop_threads(1)
+        except RuntimeError:
+            pass
         from submission_code.torch_models import load_ctc_backbone, recognise_line
         model, charset, cfg = load_ctc_backbone(
             os.path.join(local, "models", "ctc_backbone", "model.pt")
         )
         model.eval()
-        _model_bundle = (model, charset, cfg, recognise_line)
+        try:
+            model = torch.quantization.quantize_dynamic(
+                model, {torch.nn.Linear}, dtype=torch.qint8
+            )
+        except Exception:
+            pass
+
+        def low_memory_recognise(line_image):
+            with torch.inference_mode():
+                return recognise_line(model, charset, line_image)
+
+        _model_bundle = (model, charset, cfg, low_memory_recognise)
+        gc.collect()
         return _model_bundle
 
 def _otsu(gray: np.ndarray) -> int:
@@ -243,7 +267,7 @@ def _normalize_line_crop(crop: Image.Image):
         return None
     target_h = 72
     scale = target_h / max(gray.height, 1)
-    target_w = max(120, min(1500, int(gray.width * scale)))
+    target_w = max(120, min(820, int(gray.width * scale)))
     gray = gray.resize((target_w, target_h), Image.Resampling.LANCZOS)
     canvas = Image.new("L", (gray.width + 40, target_h + 20), 255)
     canvas.paste(gray, (20, 10))
@@ -320,7 +344,7 @@ def _ledger_rows(image: Image.Image):
         dedup.append(spec)
         last_y = spec["y"]
 
-    return dedup[:80], {
+    return dedup[:45], {
         "imageWidth": w,
         "imageHeight": h,
         "columns": [round(x / max(w, 1), 5) for x in vertical_rules],
@@ -361,7 +385,7 @@ def _quality(text: str):
 
 @app.get("/health")
 def health():
-    return {"ok": True, "engine": "arabic-htr-v2-name-column", "model": MODEL_REPO, "segmentation": "ledger-name-column"}
+    return {"ok": True, "engine": "arabic-htr-v2-name-column", "model": MODEL_REPO, "segmentation": "ledger-name-column", "modelReady": _model_bundle is not None}
 
 @app.post("/ocr")
 async def ocr(
@@ -382,7 +406,7 @@ async def ocr(
     h = max(1, int(layout.get("imageHeight") or 1))
     for idx, spec in enumerate(row_specs, start=1):
         try:
-            raw_text = recognise_line(model, charset, spec["crop"])
+            raw_text = recognise_line(spec["crop"])
             text = _clean_name(raw_text)
         except Exception:
             continue
@@ -400,6 +424,8 @@ async def ocr(
             "y0": round(float(spec["y0"]) / h, 5),
             "y1": round(float(spec["y1"]) / h, 5),
         })
+        if idx % 4 == 0:
+            gc.collect()
     return {
         "engine": "arabic-htr-v2-name-column",
         "user": user.get("id"),
