@@ -9,8 +9,8 @@ android {
         applicationId = "com.alribat.attendance"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
         buildConfigField("String", "SUPABASE_URL", "\"https://nibmcganjnnzmfmnuhzl.supabase.co\"")
         buildConfigField("String", "SUPABASE_KEY", "\"sb_publishable_odOiALgfgin8mv5yGWzD9w_Fnb_RDH9\"")
     }
