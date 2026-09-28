@@ -23,10 +23,27 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="الحضور والانصراف التلقائي"
+            android:text="النظام المالي والإداري • حضور الموظفين"
             android:textAlignment="center"
             android:textColor="@color/ribat_text"
             android:textSize="17sp"/>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/schoolSystemButton"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="فتح نظام مدرسة الرباط"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="تطبيق حضور الموظفين"
+            android:textColor="@color/ribat_gold_dark"
+            android:textSize="20sp"
+            android:textStyle="bold"/>
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
