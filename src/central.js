@@ -117,8 +117,19 @@ async function flushSave(){
       p_expected_version:expected
     });
     if(error){
-      failure=error;
-      console.error("Central sync failed",module,error);
+      if(/version|conflict|expected/i.test(String(error.message||""))){
+        const {data:fresh,error:freshError}=await supabase.from("school_modules").select("version").eq("module",module).single();
+        if(!freshError&&fresh){
+          const retry=await supabase.rpc("save_school_module",{p_module:module,p_data:state[module],p_expected_version:Number(fresh.version||0)});
+          if(!retry.error){
+            versionCache[module]=Number(retry.data);
+            lastSnapshot[module]=snap(state[module]);
+            continue;
+          }
+          failure=retry.error;
+        }else failure=error;
+      }else failure=error;
+      console.error("Central sync failed",module,failure);
       break;
     }
     versionCache[module]=Number(data);
