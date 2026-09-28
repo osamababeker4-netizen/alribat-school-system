@@ -756,3 +756,22 @@ table tbody tr:hover td{background:#fff8e8!important}
 @media(max-width:760px){.backNav{padding:6px 9px;font-size:12px;margin-bottom:4px}}
 
 .studentPendingFlag{display:block;margin-top:4px;font-size:10px;font-weight:800;color:#9a5a16}
+
+
+/* MOBILE SAFE AREA + FLOATING CONTROLS v1.15.1 */
+@media(max-width:680px){
+ html,body,#root,.app{min-height:100%;overflow-x:hidden}
+ .content{padding:14px 12px calc(154px + env(safe-area-inset-bottom,0px))!important}
+ .pagePanel{margin-bottom:18px}
+ .sidebar{height:calc(72px + env(safe-area-inset-bottom,0px))!important;padding:8px 8px env(safe-area-inset-bottom,0px)!important;z-index:40!important}
+ .sidebar nav{height:64px;align-items:center}
+ .centralBadge{left:10px!important;right:auto!important;bottom:calc(82px + env(safe-area-inset-bottom,0px))!important;z-index:45!important;max-width:calc(50vw - 16px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .logoutFab{right:10px!important;left:auto!important;bottom:calc(82px + env(safe-area-inset-bottom,0px))!important;z-index:45!important;max-width:calc(50vw - 16px)}
+ .settingsGrid{gap:10px}
+ .settingCard{min-width:0}
+ .buttonRow button,.settingCard button{min-height:44px}
+ .auditList{padding-bottom:10px}
+}
+@media(max-width:390px){
+ .centralBadge,.logoutFab{font-size:10px!important;padding:7px 9px!important}
+}
