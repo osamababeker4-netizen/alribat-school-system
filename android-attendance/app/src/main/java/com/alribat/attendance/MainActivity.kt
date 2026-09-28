@@ -36,7 +36,7 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        binding.loginButton.setOnClickListener { login() }
+        binding.schoolSystemButton.setOnClickListener {\n            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://alribat-school-system.onrender.com")))\n        }\n        binding.loginButton.setOnClickListener { login() }
         binding.enableButton.setOnClickListener { requestAllLocationPermissions() }
         binding.refreshButton.setOnClickListener { refreshUiAndRegister() }
         binding.logoutButton.setOnClickListener {
